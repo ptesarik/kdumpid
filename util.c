@@ -1,0 +1,421 @@
+/* 
+ * util.c 
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <zlib.h>
+
+#include "kdumpid.h"
+
+#define MAX_KERNEL_SIZE	16*1024*1024
+
+#define ALLOC_INC	1024
+
+static void
+chomp(char *banner)
+{
+	char *p = banner;
+	while (*p && *p != '\n')
+		++p;
+	*p = 0;
+}
+
+const char *arch_name(enum arch arch)
+{
+	static const char *const names[] = {
+		[ARCH_ALPHA] = "alpha",
+		[ARCH_ARM] = "arm",
+		[ARCH_IA64] = "ia64",
+		[ARCH_PPC] = "ppc",
+		[ARCH_PPC64] = "ppc64",
+		[ARCH_S390] = "s390",
+		[ARCH_S390X] = "s390x",
+		[ARCH_X86] = "i386",
+		[ARCH_X86_64] = "x86_64",
+	};
+	if (arch < sizeof(names) / sizeof(names[0]))
+		return names[arch];
+	return "(unknown)";
+}
+
+enum arch
+get_machine_arch(const char *machine)
+{
+	if (!strcmp(machine, "alpha"))
+		return ARCH_ALPHA;
+	else if (!strcmp(machine, "ia64"))
+		return ARCH_IA64;
+	else if (!strcmp(machine, "ppc"))
+		return ARCH_PPC;
+	else if (!strcmp(machine, "ppc64"))
+		return ARCH_PPC64;
+	else if (!strcmp(machine, "s390"))
+		return ARCH_S390;
+	else if (!strcmp(machine, "s390x"))
+		return ARCH_S390X;
+	else if (!strcmp(machine, "i386") ||
+		 !strcmp(machine, "i586") ||
+		 !strcmp(machine, "i686"))
+		return ARCH_X86;
+	else if (!strcmp(machine, "x86_64"))
+		return ARCH_X86_64;
+	else if (!strncmp(machine, "arm", 3))
+		return ARCH_ARM;
+	else
+		return ARCH_UNKNOWN;
+}
+
+static enum arch
+cfg2arch(const char *cfg)
+{
+	if (strstr(cfg, "CONFIG_X86_64=y"))
+		return ARCH_X86_64;
+	if (strstr(cfg, "CONFIG_X86_32=y"))
+		return ARCH_X86;
+	if (strstr(cfg, "CONFIG_PPC64=y"))
+		return ARCH_PPC64;
+	if (strstr(cfg, "CONFIG_PPC32=y"))
+		return ARCH_PPC;
+	if (strstr(cfg, "CONFIG_IA64=y"))
+		return ARCH_IA64;
+	if (strstr(cfg, "CONFIG_S390=y"))
+		return strstr(cfg, "CONFIG_64BIT=y")
+			? ARCH_S390X
+			: ARCH_S390;
+	if (strstr(cfg, "CONFIG_ALPHA=y"))
+		return ARCH_ALPHA;
+	if (strstr(cfg, "CONFIG_ARM=y"))
+		return ARCH_ARM;
+	return ARCH_UNKNOWN;
+}
+
+static int
+arch_in_array(enum arch arch, const enum arch *const arr)
+{
+	const enum arch *p = arr;
+	while (*p) {
+		if (arch == *p)
+			return 1;
+		++p;
+	}
+	return arch == ARCH_UNKNOWN;
+}
+
+int
+get_version_from_banner(struct dump_desc *dd)
+{
+	const char *p;
+	char *q;
+
+	if (!*dd->banner)
+		return -1;
+
+	p = dd->banner + sizeof("Linux version ") - 1;
+	q = dd->ver;
+	while (*p && *p != ' ')
+		*q++ = *p++;
+	*q = 0;
+	return 0;
+}
+
+/* utsname strings are 65 characters long.
+ * Final NUL may be missing (i.e. corrupted dump data)
+ */
+void
+copy_uts_string(char *dest, const char *src)
+{
+	if (!*dest) {
+		memcpy(dest, src, 65);
+		dest[65] = 0;
+	}
+}
+
+int
+uts_looks_sane(struct new_utsname *uts)
+{
+	return uts->sysname[0] && uts->nodename[0] && uts->release[0] &&
+		uts->version[0] && uts->machine[0];
+}
+
+int read_page(struct dump_desc *dd, unsigned long pfn)
+{
+	if (pfn == dd->last_pfn)
+		return 0;
+	dd->last_pfn = pfn;
+	return dd->read_page(dd, pfn);
+}
+
+size_t
+dump_cpin(struct dump_desc *dd, void *buf, uint64_t paddr, size_t len)
+{
+	while (len) {
+		size_t off, remain;
+
+		if (read_page(dd, paddr / dd->page_size))
+			break;
+
+		off = paddr % dd->page_size;
+		remain = dd->page_size - off;
+		if (remain > len)
+			remain = len;
+		memcpy(buf, dd->page + off, remain);
+		paddr += remain;
+		buf += remain;
+		len -= remain;
+	}
+	return len;
+}
+
+int
+uncompress_config(struct dump_desc *dd, void *zcfg, size_t zsize)
+{
+	z_stream stream;
+	void *cfg;
+	int ret;
+
+	stream.next_in = zcfg;
+	stream.avail_in = zsize;
+	stream.zalloc = Z_NULL;
+	stream.zfree = Z_NULL;
+	stream.opaque = Z_NULL;
+
+	if (inflateInit2(&stream, 16+MAX_WBITS) != Z_OK)
+		return -1;
+
+	cfg = NULL;
+	stream.avail_out = -1;
+	stream.total_out = 0;
+	do {
+		void *newbuf = realloc(cfg, stream.total_out + 1024);
+		if (!newbuf) {
+			ret = Z_MEM_ERROR;
+			break;
+		}
+
+		cfg = newbuf;
+		stream.next_out = cfg + stream.total_out;
+		stream.avail_out += ALLOC_INC;
+	} while( (ret = inflate(&stream, Z_NO_FLUSH)) == Z_OK);
+
+	inflateEnd(&stream);
+
+	if (ret != Z_STREAM_END) {
+		free(cfg);
+		return -1;
+	}
+
+	*stream.next_out = 0;	/* terminating NUL */
+	dd->cfg = cfg;
+	dd->cfglen = stream.total_out;
+
+	return 0;
+}
+
+typedef int (*explore_fn)(struct dump_desc *, uint64_t, uint64_t,
+			  const enum arch *);
+
+static int
+explore_kernel(struct dump_desc *dd, explore_fn fn)
+{
+	static const enum arch all_archs[] = {
+		ARCH_ALPHA, ARCH_ARM, ARCH_IA64,
+		ARCH_PPC, ARCH_PPC64,
+		ARCH_S390, ARCH_S390X,
+		ARCH_X86, ARCH_X86_64,
+		0
+	};
+	static const enum arch x86_biarch[] = {
+		ARCH_X86, ARCH_X86_64, 0
+	};
+
+	uint64_t addr;
+
+	if (dd->flags & DIF_FORCE)
+		return fn(dd, 0, dd->max_pfn * dd->page_size, all_archs);
+
+	if (arch_in_array(dd->arch, x86_biarch)) {
+		if (dd->start_addr != INVALID_ADDR)
+			return fn(dd, dd->start_addr,
+				  dd->start_addr + MAX_KERNEL_SIZE,
+				  x86_biarch);
+
+		/* Xen pv kernels are loaded low */
+		addr = 0x2000;
+		if (dd->flags & DIF_XEN &&
+		    looks_like_kcode_x86(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			return 0;
+		}
+
+		/* x86 kernels were traditionally loaded at 1M */
+		addr = 1024*1024;
+		if (looks_like_kcode_x86(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			return 0;
+		}
+
+		/* other x86 kernels are loaded at 16M */
+		addr = 16*1024*1024;
+		if (looks_like_kcode_x86(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			return 0;
+		}
+
+		/* some x86 kernels are loaded at 2M (due to align) */
+		addr = 2*1024*1024;
+		if (looks_like_kcode_x86(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+static int
+explore_banner(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
+	       const enum arch *expected_archs)
+{
+	static const unsigned char banhdr[] = "Linux version ";
+
+	while ((addr = dump_search_range(dd, addr, endaddr,
+					 banhdr, sizeof(banhdr) - 1)) != INVALID_ADDR) {
+		char banner[256];
+		size_t len;
+
+		len = dump_cpin(dd, banner, addr, sizeof banner);
+		addr += sizeof(banhdr) - 1;
+		if (len == sizeof banner)
+			continue;
+		dd->banner[sizeof(dd->banner)-1] = 0;
+		strncpy(dd->banner, banner, sizeof(dd->banner) - 1);
+		chomp(dd->banner);
+		return 0;
+	}
+
+	return -1;
+}
+
+static int
+explore_utsname(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
+		const enum arch *const expected_archs)
+{
+	static const unsigned char sysname[65] = "Linux";
+
+	while ((addr = dump_search_range(dd, addr, endaddr,
+					 sysname, sizeof sysname)) != INVALID_ADDR) {
+		struct new_utsname uts; 
+		size_t len;
+		enum arch arch;
+
+		len = dump_cpin(dd, &uts, addr, sizeof uts);
+		addr += sizeof sysname;
+		if (len)
+			continue;
+
+		if (!uts_looks_sane(&uts))
+			continue;
+
+		arch = get_machine_arch(uts.machine);
+		if (arch != ARCH_UNKNOWN &&
+		    arch_in_array(arch, expected_archs)) {
+			dd->arch = arch;
+			copy_uts_string(dd->machine, uts.machine);
+			copy_uts_string(dd->ver, uts.release);
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+static uint64_t
+search_ikcfg(struct dump_desc *dd, uint64_t startaddr, uint64_t endaddr)
+{
+	const unsigned char magic_start[8] = "IKCFG_ST";
+	const unsigned char magic_end[8] = "IKCFG_ED";
+	size_t cfgsize;
+	char *cfg;
+
+	startaddr = dump_search_range(dd, startaddr, endaddr,
+				      magic_start, sizeof magic_start);
+	if (startaddr == INVALID_ADDR)
+		goto fail;
+	startaddr += sizeof(magic_start);
+
+	endaddr = dump_search_range(dd, startaddr, endaddr,
+				    magic_end, sizeof magic_end);
+	if (endaddr == INVALID_ADDR)
+		goto fail;
+
+	cfgsize = endaddr - startaddr;
+	if (! (cfg = malloc(cfgsize)) ) {
+		perror("Cannot allocate kernel config");
+		goto fail;
+	}
+	if (dump_cpin(dd, cfg, startaddr, cfgsize))
+		goto fail_free;
+
+	if (uncompress_config(dd, cfg, cfgsize))
+		goto fail_free;
+
+	free(cfg);
+	return endaddr;
+
+ fail_free:
+	free(cfg);
+ fail:
+	return INVALID_ADDR;
+}
+
+static int
+explore_ikcfg(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
+	      const enum arch *const expected_archs)
+{
+	while ((addr = search_ikcfg(dd, addr, endaddr)) != INVALID_ADDR) {
+		enum arch arch = cfg2arch(dd->cfg);
+		if (arch != ARCH_UNKNOWN &&
+		    arch_in_array(arch, expected_archs)) {
+			dd->arch = arch;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+int
+explore_raw_data(struct dump_desc *dd)
+{
+	int ret;
+
+	if ( (dd->page = malloc(dd->page_size)) == NULL) {
+		perror("Cannot allocate page data");
+		return -1;
+	}
+
+	ret = -1;
+	ret &= explore_kernel(dd, explore_banner);
+	ret &= explore_kernel(dd, explore_utsname);
+	explore_kernel(dd, explore_ikcfg);
+
+	free(dd->page);
+
+	return ret;
+}
