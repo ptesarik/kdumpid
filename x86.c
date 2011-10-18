@@ -8,9 +8,18 @@
 
 #define MAX_INSN_LEN	100
 
+struct disas_state {
+	uint32_t ecx_value;
+	int si_stored, si_modified;
+	int depth;
+};
+
 struct disas_priv {
 	char *iptr;
+	struct disas_state initstate;
+
 	char insn[MAX_INSN_LEN];
+	unsigned char *pagemap;
 };
 
 static const unsigned char xen_cpuid[] =
@@ -57,6 +66,28 @@ skip_zeroes(unsigned char *buf, size_t len)
 }
 
 static int
+check_xen_early_idt_msg(struct dump_desc *dd)
+{
+	static const unsigned char msg[] =
+		"PANIC: early exception rip %lx error %lx cr2 %lx\n";
+	void *p = dd->page;
+
+	while (p < dd->page + 0x100)
+		if (!memcmp(p, msg, sizeof msg - 1))
+			return 1;
+	return 0;
+}
+
+static void
+set_pagemap(unsigned char *pagemap, unsigned pc, int count)
+{
+	while (count > 0) {
+		pagemap[pc >> 3] |= 1 << (pc & 7);
+		++pc, --count;
+	}
+}
+
+static int
 is_lgdt(const char *insn)
 {
 	return insn && (!strcmp(insn, "lgdt") || !strcmp(insn, "lgdtl"));
@@ -73,142 +104,131 @@ is_reg(const char *loc, const char *reg)
 }
 
 static int
-looks_like_i386(struct dump_desc *dd, uint64_t addr)
+disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 {
-	struct disassemble_info info;
-	struct disas_priv priv;
+	struct disas_priv *priv = info->stream;
+	struct disas_state state = priv->initstate;
 	char *toksave;
-	char *insn, *src, *dst;
-	unsigned pc;
+	char *insn, *arg1, *arg2;
+	unsigned long long a;
 	int count;
-	int esi_modified;
 
-	init_disassemble_info(&info, &priv, disas_fn);
-	info.arch          = bfd_arch_i386;
-	info.mach          = bfd_mach_i386_i386;
-	info.buffer        = dd->page;
-	info.buffer_vma    = addr;
-	info.buffer_length = dd->page_size;
-	info.memory_error_func = error_func;
-	disassemble_init_for_target(&info);
-
-	pc = 0;
-	do
-	{
-		pc += skip_zeroes(dd->page + pc, dd->page_size - pc);
-		priv.iptr = priv.insn;
-		count = print_insn_i386(addr + pc, &info);
-
-		insn = strtok_r(priv.insn, wsep, &toksave);
-		src = strtok_r(NULL, sep, &toksave);
-		dst = strtok_r(NULL, sep, &toksave);
-
-		if (is_lgdt(insn))
-			return 1;
+	do {
+		count = skip_zeroes(dd->page + pc, dd->page_size - pc);
+		set_pagemap(priv->pagemap, pc, count);
+		pc += count;
 
 		if (dd->page_size - pc >= sizeof(xen_cpuid) &&
 		    !memcmp(dd->page + pc, xen_cpuid, sizeof xen_cpuid))
 			return 1;
 
-		if (dd->flags & DIF_XEN && !esi_modified &&
-		    !strncmp(insn, "mov", 3) && is_reg(src, "si")) {
-			unsigned long long a;
-			if (sscanf(dst, "0x%llx", &a) == 1)
-				dd->xen_start_info = a;
-		}
+		if ( (priv->pagemap[pc >> 3] & (1 << (pc & 7))) )
+			break;
 
-		if (is_reg(dst, "si"))
-			esi_modified = 1;
-
+		priv->iptr = priv->insn;
+		count = print_insn_i386(info->buffer_vma + pc, info);
+		set_pagemap(priv->pagemap, pc, count);
 		pc += count;
-	} while (count > 0);
 
-	return 0;
-}
+		insn = strtok_r(priv->insn, wsep, &toksave);
+		arg1 = strtok_r(NULL, sep, &toksave);
+		arg2 = strtok_r(NULL, sep, &toksave);
 
-static int
-looks_like_x86_64(struct dump_desc *dd, uint64_t addr)
-{
-	struct disassemble_info info;
-	struct disas_priv priv;
-	char *toksave;
-	char *insn, *src, *dst;
-	unsigned pc;
-	int count;
-	int rsi_modified;
-	uint32_t ecx_value;
+		/* a jump instruction? */
+		if ( (*insn == 'j' ||
+		      !strncmp(insn, "call", 4)) &&
+		     sscanf(arg1, "0x%llx", &a) == 1) {
+			int cont = strncmp(insn, "jmp", 3);
 
-	/* If unsuccessful, retry for x86_64 */
-	init_disassemble_info(&info, &priv, disas_fn);
-	info.arch          = bfd_arch_i386;
-	info.mach          = bfd_mach_x86_64;
-	info.buffer        = dd->page;
-	info.buffer_vma    = addr;
-	info.buffer_length = dd->page_size;
-	info.memory_error_func = error_func;
-	disassemble_init_for_target(&info);
+			a -= info->buffer_vma;
+			if (a < info->buffer_vma + dd->page_size) {
+				priv->initstate = state;
+				++priv->initstate.depth;
+				if (disas_at(dd, info, a))
+					return 1;
+				--priv->initstate.depth;
+			}
 
-	rsi_modified = 0;
-	pc = 0;
-	ecx_value = 0;
-	do
-	{
-		pc += skip_zeroes(dd->page + pc, dd->page_size - pc);
-		priv.iptr = priv.insn;
-		count = print_insn_i386(addr + pc, &info);
+			if (cont)
+				continue;
 
-		insn = strtok_r(priv.insn, wsep, &toksave);
-		src = strtok_r(NULL, sep, &toksave);
-		dst = strtok_r(NULL, sep, &toksave);
+			if (state.depth == 1 &&
+			    dd->flags & DIF_XEN && state.si_stored)
+				return check_xen_early_idt_msg(dd);
+
+			break;
+		}
+		if (!strncmp(insn, "ret", 3))
+			break;
+
+		if (!strcmp(insn, "(bad)"))
+			return -1;
 
 		if (is_lgdt(insn))
 			return 1;
 
-		if (dd->page_size - pc >= sizeof(xen_cpuid) &&
-		    !memcmp(dd->page + pc, xen_cpuid, sizeof xen_cpuid))
+		if (!strcmp(insn, "wrmsr") && state.ecx_value == MSR_GS_BASE)
 			return 1;
 
-		if (!strcmp(insn, "wrmsr") && ecx_value == MSR_GS_BASE)
-			return 1;
-
-		if (dd->flags & DIF_XEN && !rsi_modified &&
-		    !strncmp(insn, "mov", 3) && is_reg(src, "si")) {
-			unsigned long long a;
-			if (sscanf(dst, "0x%llx", &a) == 1)
-				dd->xen_start_info = a;
+		if (!strncmp(insn, "mov", 3)) {
+			if (is_reg(arg2, "cx") &&
+			    sscanf(arg1, "$0x%llx", &a) == 1)
+				state.ecx_value = a;
+			if (is_reg(arg1, "si")) {
+				state.si_stored = 1;
+				if (dd->flags & DIF_XEN &&
+				    !state.si_modified &&
+				    sscanf(arg2, "0x%llx", &a) == 1)
+					dd->xen_start_info = a;
+			}
 		}
 
-		if (!strcmp(insn, "mov") && is_reg(dst, "cx")) {
-			unsigned long long a;
-			if (sscanf(src, "$0x%llx", &a) == 1)
-				ecx_value = a;
-		}
-
-		if (is_reg(dst, "si"))
-			rsi_modified = 1;
-
-		pc += count;
+		if (is_reg(arg2, "si"))
+			state.si_modified = 1;
 	} while (count > 0);
 
 	return 0;
 }
 
-/* Decode the first page at addr and check whether it contains
- * an "lgdt" instruction.
+/* Decode the first page at addr and check whether it looks like
+ * x86 kernel code start.
  */
 int
 looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 {
-	int res;
+	struct disassemble_info info;
+	struct disas_priv priv;
 
 	if (read_page(dd, addr / dd->page_size))
 		return -1;
 
-	if (dd->arch != ARCH_X86_64 && (res = looks_like_i386(dd, addr)) )
-		return res;
+	memset(&priv, 0, sizeof priv);
+	if (! (priv.pagemap = calloc(1, dd->page_size / 8)) )
+		return -1;
 
-	if (dd->arch != ARCH_X86 && (res = looks_like_x86_64(dd, addr)) )
-		return res;
+	init_disassemble_info(&info, &priv, disas_fn);
+	info.memory_error_func = error_func;
+	info.buffer        = dd->page;
+	info.buffer_vma    = addr;
+	info.buffer_length = dd->page_size;
+	info.arch          = bfd_arch_i386;
 
+	/* Try i386 code first */
+	info.mach          = bfd_mach_i386_i386;
+	disassemble_init_for_target(&info);
+	if (dd->arch != ARCH_X86_64 && disas_at(dd, &info, 0)) {
+		free(priv.pagemap);
+		return 1;
+	}
+
+	/* Try x86_64 if that failed */
+	info.mach          = bfd_mach_x86_64;
+	disassemble_init_for_target(&info);
+	if (dd->arch != ARCH_X86 && disas_at(dd, &info, 0)) {
+		free(priv.pagemap);
+		return 1;
+	}
+
+	free(priv.pagemap);
 	return 0;
 }
