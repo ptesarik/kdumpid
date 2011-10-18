@@ -152,6 +152,30 @@ elf_read_page(struct dump_desc *dd, unsigned long pfn)
 	return 0;
 }
 
+static int
+elf_read_xen_dom0(struct dump_desc *dd, unsigned long pfn)
+{
+	struct elfdump_priv *edp = dd->priv;
+	unsigned fpp = dd->page_size / dd->ptr_size;
+	uint64_t mfn_idx, frame_idx;
+
+	mfn_idx = pfn / fpp;
+	frame_idx = pfn % fpp;
+	if (mfn_idx >= edp->xen_map_size)
+		return -1;
+
+	pfn = (dd->ptr_size == 8)
+		? ((uint64_t*)edp->xen_map)[mfn_idx]
+		: ((uint32_t*)edp->xen_map)[mfn_idx];
+	if (elf_read_page(dd, pfn))
+		return -1;
+
+	pfn = (dd->ptr_size == 8)
+		? ((uint64_t*)dd->page)[frame_idx]
+		: ((uint32_t*)dd->page)[frame_idx];
+	return elf_read_page(dd, pfn);
+}
+
 static unsigned long
 pfn_to_mfn(struct elfdump_priv *edp, unsigned long pfn)
 {
@@ -557,6 +581,121 @@ process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 }
 
 static int
+initialize_xen_map64(struct dump_desc *dd, void *dir)
+{
+	struct elfdump_priv *edp = dd->priv;
+	unsigned fpp = dd->page_size / dd->ptr_size;
+	uint64_t *dirp, *p, *map;
+	uint64_t pfn;
+	unsigned mfns;
+
+	mfns = 0;
+	for (dirp = dir, pfn = 0; *dirp && pfn < dd->max_pfn;
+	     ++dirp, pfn += fpp * fpp) {
+		if (read_page(dd, *dirp))
+			return -1;
+
+		for (p = dd->page; (void*)p < dd->page + dd->page_size; ++p)
+			if (*p)
+				++mfns;
+	}
+
+	if (! (map = malloc(mfns * sizeof(uint64_t))) ) {
+		perror("Cannot malloc Xen map");
+		return -1;
+	}
+	edp->xen_map = map;
+	edp->xen_map_size = mfns;
+
+	for (dirp = dir; mfns; ++dirp) {
+		if (read_page(dd, *dirp))
+			return -1;
+		for (p = dd->page; (void*)p < dd->page + dd->page_size; ++p)
+			if (*p) {
+				*map++ = dump64toh(dd, *p);
+				--mfns;
+			}
+	}
+
+	return 0;
+}
+
+static int
+initialize_xen_map32(struct dump_desc *dd, void *dir)
+{
+	struct elfdump_priv *edp = dd->priv;
+	unsigned fpp = dd->page_size / dd->ptr_size;
+	uint32_t *dirp, *p, *map;
+	uint32_t pfn;
+	unsigned mfns;
+
+	mfns = 0;
+	for (dirp = dir, pfn = 0; *dirp && pfn < dd->max_pfn;
+	     ++dirp, pfn += fpp * fpp) {
+		if (read_page(dd, *dirp))
+			return -1;
+
+		for (p = dd->page; (void*)p < dd->page + dd->page_size; ++p)
+			if (*p)
+				++mfns;
+	}
+
+	if (! (map = malloc(mfns * sizeof(uint32_t))) ) {
+		perror("Cannot malloc Xen map");
+		return -1;
+	}
+	edp->xen_map = map;
+	edp->xen_map_size = mfns;
+
+	for (dirp = dir; mfns; ++dirp) {
+		if (read_page(dd, *dirp))
+			return -1;
+		for (p = dd->page; (void*)p < dd->page + dd->page_size; ++p)
+			if (*p) {
+				*map++ = dump32toh(dd, *p);
+				--mfns;
+			}
+	}
+
+	return 0;
+}
+
+static int
+initialize_xen_map(struct dump_desc *dd)
+{
+	struct elfdump_priv *edp = dd->priv;
+	void *dir;
+	int ret = -1;
+
+	if ( (dir = malloc(dd->page_size)) == NULL) {
+		perror("Cannot allocate Xen p2m list");
+		goto done;
+	}
+	dd->page = dir;
+
+	if (read_page(dd, edp->xen_p2m_mfn))
+		goto free_dir;
+
+	if ( (dd->page = malloc(dd->page_size)) == NULL) {
+		perror("Cannot allocate Xen frame page");
+		goto free_dir;
+	}
+
+	ret = (dd->ptr_size == 8)
+		? initialize_xen_map64(dd, dir)
+		: initialize_xen_map32(dd, dir);
+
+	if (!ret)
+		dd->read_page = elf_read_xen_dom0;
+
+	free(dd->page);
+ free_dir:
+	free(dir);
+ done:
+	return ret;
+}
+
+static int
 handle_common(struct dump_desc *dd)
 {
 	struct elfdump_priv *edp = dd->priv;
@@ -606,6 +745,10 @@ handle_common(struct dump_desc *dd)
 			edp->xen_map_size = sect->size / sizeof(uint64_t);
 		}
 	}
+
+	if (edp->xen_p2m_mfn && initialize_xen_map(dd))
+		goto fail;
+
 	if (edp->xen_pages_offset) {
 		if (!edp->xen_map) {
 			fputs("Xen: no way to map machine pages\n", stderr);
