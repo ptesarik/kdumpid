@@ -109,12 +109,15 @@ set_page_size(struct dump_desc *dd)
 		[ARCH_X86] = 12,
 		[ARCH_X86_64] = 12,
 	};
-	int shift = arch_page_shifts[dd->arch];
 
-	dd->page_size = 1 << shift;
-	if (!shift)
-		fprintf(stderr, "Arch size unknown. Guessing %lu\n",
-			(unsigned long)dd->page_size);
+	if (!dd->page_size) {
+		int shift = arch_page_shifts[dd->arch];
+
+		dd->page_size = 1 << shift;
+		if (!shift)
+			fprintf(stderr, "Arch size unknown. Guessing %lu\n",
+				(unsigned long)dd->page_size);
+	}
 }
 
 static int
@@ -492,6 +495,33 @@ xc_core_dump_elfnote(off_t sh_offset, size_t sh_size, int store)
 #endif
 
 static void
+process_vmcoreinfo(struct dump_desc *dd, void *desc, size_t descsz)
+{
+	char *p = desc;
+
+	while (descsz) {
+		char *eol, *eq;
+
+		if (! (eol = memchr(p, '\n', descsz)) )
+			eol = p + descsz;
+		descsz -= eol - p;
+
+		if ( (eq = memchr(p, '=', eol - p)) ) {
+			size_t namesz = eq - p;
+
+			++eq;
+			if (namesz == sizeof("PAGESIZE") - 1 &&
+			    !strncmp(p, "PAGESIZE", namesz))
+				sscanf(eq, "%zd", &dd->page_size);
+		}
+
+		p = eol;
+		while (descsz && *p == '\n')
+			++p, --descsz;
+	}
+}
+
+static void
 process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 {
 	while (size >= sizeof(Elf32_Nhdr)) {
@@ -517,6 +547,9 @@ process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 		if (namesz == sizeof("Xen") &&
 		    !strcmp(name, "Xen"))
 			process_xen_note(dd, type, desc, descsz);
+		else if (namesz == sizeof("VMCOREINFO") &&
+			 !strcmp(name, "VMCOREINFO"))
+			process_vmcoreinfo(dd, desc, descsz);
 	}
 
 	if (size)
