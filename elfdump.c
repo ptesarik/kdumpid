@@ -27,10 +27,23 @@
 /* System information exported through crash notes. */
 #define XEN_ELFNOTE_CRASH_INFO 0x1000001
 
+/* .Xen.note types */
+#define XEN_ELFNOTE_DUMPCORE_NONE            0x2000000
+#define XEN_ELFNOTE_DUMPCORE_HEADER          0x2000001
+#define XEN_ELFNOTE_DUMPCORE_XEN_VERSION     0x2000002
+#define XEN_ELFNOTE_DUMPCORE_FORMAT_VERSION  0x2000003
+
 struct xen_p2m {
 	uint64_t pfn;
 	uint64_t gmfn; 
 };
+
+struct xen_elfnote_header {
+	uint64_t xch_magic;
+	uint64_t xch_nr_vcpus;
+	uint64_t xch_nr_pages;
+	uint64_t xch_page_size;
+}; 
 
 struct load_segment {
 	off_t file_offset;
@@ -446,77 +459,22 @@ process_xen_note(struct dump_desc *dd, uint32_t type,
 	dd->flags |= DIF_XEN;
 }
 
-#if 0
-	if (STREQ(name, ".note.Xen"))
-/*
- *  Dump the array of elfnote structures, storing relevant info
- *  when requested during initialization.  This function is 
- *  common to both 32-bit and 64-bit ELF files.
- */
-static void 
-xc_core_dump_elfnote(off_t sh_offset, size_t sh_size, int store)
+static void
+process_xc_xen_note(struct dump_desc *dd, uint32_t type,
+		    void *desc, size_t descsz)
 {
-	int i, lf, index;
-	struct elfnote *elfnote;
-	ulonglong *data;
-	struct xen_dumpcore_elfnote_header_desc *elfnote_header;
-	struct xen_dumpcore_elfnote_format_version_desc *format_version;
+	if (type == XEN_ELFNOTE_DUMPCORE_HEADER) {
+		struct xen_elfnote_header *header = desc;
+		dd->page_size = dump64toh(dd, header->xch_page_size);
+	} else if (type == XEN_ELFNOTE_DUMPCORE_FORMAT_VERSION) {
+		uint64_t version = dump64toh(dd, *(uint64_t*)desc);
 
-	elfnote_header = NULL;
-	format_version = NULL;
-
-	for (index = 0; index < sh_size; ) {
-		elfnote = (struct elfnote *)&notes_buffer[index];
-		switch (elfnote->type) 
-		{
-		case XEN_ELFNOTE_DUMPCORE_NONE:           
-			break;
-		case XEN_ELFNOTE_DUMPCORE_HEADER:
-			elfnote_header = (struct xen_dumpcore_elfnote_header_desc *)
-				(elfnote+1);
-			break;
-		case XEN_ELFNOTE_DUMPCORE_XEN_VERSION:   
-			break;
-		case XEN_ELFNOTE_DUMPCORE_FORMAT_VERSION:
-			format_version = (struct xen_dumpcore_elfnote_format_version_desc *)
-				(elfnote+1);
-			break;
-		default:
-			break;
-		}
-
-		data = (ulonglong *)(elfnote+1);
-		for (i = lf = 0; i < elfnote->descsz/sizeof(ulonglong); i++) {
-			if (((i%2)==0)) {
-				lf++;
-			} else
-				lf = 0;
-                }
-		index += sizeof(struct elfnote) + elfnote->descsz;
+		if (version != 1)
+			fprintf(stderr, "WARNING: unsupported xen dump-core"
+				"format version: %016llx\n",
+				(unsigned long long)version);
 	}
-
-	if (elfnote_header) {
-		xd->xc_core.header.xch_magic = elfnote_header->xch_magic;
-		xd->xc_core.header.xch_nr_vcpus = elfnote_header->xch_nr_vcpus;
-		xd->xc_core.header.xch_nr_pages = elfnote_header->xch_nr_pages;
-		xd->page_size = elfnote_header->xch_page_size;
-	}
-
-	if (format_version) {
-		switch (format_version->version)
-		{
-		case FORMAT_VERSION_0000000000000001:
-			break;
-		default:
-			error(WARNING, 
-			    "unsupported xen dump-core format version: %016llx\n",
-				format_version->version);
-		}
-		xd->xc_core.format_version = format_version->version;
-	}
-
 }
-#endif
 
 static void
 process_vmcoreinfo(struct dump_desc *dd, void *desc, size_t descsz)
@@ -579,6 +537,9 @@ process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 		if (namesz == sizeof("Xen") &&
 		    !strcmp(name, "Xen"))
 			process_xen_note(dd, type, desc, descsz);
+		else if (namesz == sizeof(".note.Xen") &&
+			 !strcmp(name, ".note.Xen"))
+			process_xc_xen_note(dd, type, desc, descsz);
 		else if (namesz == sizeof("VMCOREINFO") &&
 			 !strcmp(name, "VMCOREINFO"))
 			process_vmcoreinfo(dd, desc, descsz);
