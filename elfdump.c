@@ -245,6 +245,21 @@ store_sect(struct elfdump_priv *edp, off_t offset,
 }
 
 static void *
+read_elf_seg(struct dump_desc *dd, struct load_segment *seg)
+{
+	size_t size = seg->phys_end - seg->phys_start;
+	void *buf = malloc(size);
+	if (!buf)
+		return NULL;
+
+	if (pread(dd->fd, buf, size, seg->file_offset) == size)
+		return buf;
+
+	free(buf);
+	return NULL;
+}
+
+static void *
 read_elf_sect(struct dump_desc *dd, struct section *sect)
 {
 	void *buf;
