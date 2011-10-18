@@ -179,6 +179,9 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			if (is_reg(arg2, "cx") &&
 			    sscanf(arg1, "$0x%llx", &a) == 1)
 				state.ecx_value = a;
+			else if (!strcmp(arg2, "%cr3") ||
+				 !strcmp(arg2, "%cr4"))
+				return 1;
 			if (is_reg(arg1, "si")) {
 				state.si_stored = 1;
 				if (dd->flags & DIF_XEN &&
