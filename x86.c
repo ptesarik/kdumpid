@@ -118,6 +118,9 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 		set_pagemap(priv->pagemap, pc, count);
 		pc += count;
 
+		if (dd->page_size - pc == 0)
+			break;
+
 		if (dd->page_size - pc >= sizeof(xen_cpuid) &&
 		    !memcmp(dd->page + pc, xen_cpuid, sizeof xen_cpuid))
 			return 1;
@@ -128,6 +131,8 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 		priv->iptr = priv->insn;
 		count = print_insn_i386(info->buffer_vma + pc, info);
 		set_pagemap(priv->pagemap, pc, count);
+		if (count < 0)
+			break;
 		pc += count;
 
 		insn = strtok_r(priv->insn, wsep, &toksave);
