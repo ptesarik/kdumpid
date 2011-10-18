@@ -48,6 +48,7 @@ struct dump_desc {
 
 	enum arch arch;		/* architecture (if known) */
 	int endian;		/* __LITTLE_ENDIAN or __BIG_ENDIAN */
+	size_t ptr_size;	/* arch pointer size */
 	uint64_t start_addr;	/* kernel start address */
 
 	char format[32];	/* file format */
@@ -105,6 +106,7 @@ struct timeval_64 {
 void copy_uts_string(char *dest, const char *src);
 int uts_looks_sane(struct new_utsname *uts);
 
+const size_t arch_ptr_size(enum arch arch);
 const char *arch_name(enum arch arch);
 enum arch get_machine_arch(const char *machine);
 

@@ -32,6 +32,27 @@ chomp(char *banner)
 	*p = 0;
 }
 
+const size_t
+arch_ptr_size(enum arch arch)
+{
+	switch (arch) {
+	case ARCH_ALPHA:
+	case ARCH_IA64:
+	case ARCH_PPC64:
+	case ARCH_S390X:
+	case ARCH_X86_64:
+		return 8;	/* 64 bits */
+
+	case ARCH_ARM:
+	case ARCH_PPC:
+	case ARCH_S390:
+	case ARCH_X86:
+	default:
+		return 4;	/* 32 bits */
+	}
+
+}
+
 const char *arch_name(enum arch arch)
 {
 	static const char *const names[] = {
