@@ -78,6 +78,9 @@ int handle_kdump(struct dump_desc *dd);
 /* ELF dumps */
 int handle_elfdump(struct dump_desc *dd);
 
+/* live sources */
+int handle_devmem(struct dump_desc *dd);
+
 /* Arch-specific helpers */
 int looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr);
 

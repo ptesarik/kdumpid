@@ -57,6 +57,7 @@ static const char magic_mclxcd[] =
 	{ 0xdd, 0xcc, 0x8b, 0x9a };
 static const char magic_s390[] =
 	{ 0xa8, 0x19, 0x01, 0x73, 0x61, 0x8f, 0x23, 0xfd };
+static const char magic_devmem[0];
 
 static int
 handle_kvm(struct dump_desc *dd)
@@ -120,6 +121,7 @@ static struct crash_file formats[] = {
 	FORMAT(lkcd),
 	FORMAT(mclxcd),
 	FORMAT(s390),
+	FORMAT(devmem),
 };
 
 #define NFORMATS	(sizeof formats / sizeof formats[0])
