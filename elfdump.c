@@ -295,6 +295,7 @@ init_elf32(struct dump_desc *dd, Elf32_Ehdr *ehdr)
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
+	dd->ptr_size = arch_ptr_size(dd->arch);
 	set_page_size(dd);
 
 	if (init_segments(edp, dump16toh(dd, ehdr->e_phnum)))
@@ -345,6 +346,7 @@ init_elf64(struct dump_desc *dd, Elf64_Ehdr *ehdr)
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
+	dd->ptr_size = arch_ptr_size(dd->arch);
 	set_page_size(dd);
 
 	if (init_segments(edp, dump16toh(dd, ehdr->e_phnum)))
