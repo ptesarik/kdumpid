@@ -33,6 +33,24 @@ struct crash_file {
 	handler_t handler;
 };
 
+/* /dev/crash cannot handle reads larger than page size */
+static int
+paged_cpin(int fd, void *buffer, size_t size)
+{
+	long page_size = sysconf(_SC_PAGESIZE);
+	while (size) {
+		size_t chunksize = (size > page_size)
+			? page_size
+			: size;
+		if (read(fd, buffer, chunksize) != chunksize)
+			return size;
+
+		buffer += chunksize;
+		size -= chunksize;
+	}
+	return 0;
+}
+
 static const char magic_elfdump[] =
 	{ '\177', 'E', 'L', 'F' };
 static const char magic_kvm[] =
@@ -187,7 +205,7 @@ main(int argc, char **argv)
 		perror(dd.name);
 		return 2;
 	}
-	if (read(dd.fd, dd.buffer, MAX_PAGE_SIZE) == -1) {
+	if (paged_cpin(dd.fd, dd.buffer, MAX_PAGE_SIZE)) {
 		perror("Read header");
 		return 2;
 	}
