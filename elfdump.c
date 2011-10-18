@@ -537,6 +537,14 @@ process_vmcoreinfo(struct dump_desc *dd, void *desc, size_t descsz)
 			if (namesz == sizeof("PAGESIZE") - 1 &&
 			    !strncmp(p, "PAGESIZE", namesz))
 				sscanf(eq, "%zd", &dd->page_size);
+			else if (namesz == sizeof("OSRELEASE") - 1 &&
+				 !strncmp(p, "OSRELEASE", namesz)) {
+				size_t valsz = eol - eq;
+				if (valsz > 65)
+					valsz = 65;
+				memcpy(&dd->ver, eq, valsz);
+				dd->ver[65] = 0;
+			}
 		}
 
 		p = eol;
@@ -715,6 +723,9 @@ handle_common(struct dump_desc *dd)
 		process_notes(dd, hdr, seg->phys_end - seg->phys_start);
 		free(hdr);
 	}
+
+	if (!(dd->flags & DIF_FORCE) && dd->ver[0])
+		return 0;
 
 	set_page_size(dd);
 
