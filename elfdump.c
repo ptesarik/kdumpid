@@ -314,8 +314,6 @@ init_elf32(struct dump_desc *dd, Elf32_Ehdr *ehdr)
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
-	dd->ptr_size = arch_ptr_size(dd->arch);
-	set_page_size(dd);
 
 	if (init_segments(edp, dump16toh(dd, ehdr->e_phnum)))
 		goto fail;
@@ -365,8 +363,6 @@ init_elf64(struct dump_desc *dd, Elf64_Ehdr *ehdr)
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
-	dd->ptr_size = arch_ptr_size(dd->arch);
-	set_page_size(dd);
 
 	if (init_segments(edp, dump16toh(dd, ehdr->e_phnum)))
 		goto fail;
@@ -536,6 +532,8 @@ handle_common(struct dump_desc *dd)
 	if (!edp->num_load_segments && !edp->num_sections)
 		return -1;
 
+	dd->ptr_size = arch_ptr_size(dd->arch);
+
 	/* read notes */
 	for (i = 0; i < edp->num_note_segments; ++i) {
 		struct load_segment *seg = edp->note_segments + i;
@@ -545,6 +543,8 @@ handle_common(struct dump_desc *dd)
 		process_notes(dd, hdr, seg->phys_end - seg->phys_start);
 		free(hdr);
 	}
+
+	set_page_size(dd);
 
 	/* get max PFN */
 	for (i = 0; i < edp->num_load_segments; ++i) {
