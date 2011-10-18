@@ -19,7 +19,7 @@ struct disas_priv {
 	struct disas_state initstate;
 
 	char insn[MAX_INSN_LEN];
-	unsigned char *pagemap;
+	unsigned char pagemap[];
 };
 
 static const unsigned char xen_cpuid[] =
@@ -202,16 +202,16 @@ int
 looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 {
 	struct disassemble_info info;
-	struct disas_priv priv;
+	struct disas_priv *priv;
 
 	if (read_page(dd, addr / dd->page_size))
 		return -1;
 
-	memset(&priv, 0, sizeof priv);
-	if (! (priv.pagemap = calloc(1, dd->page_size / 8)) )
+	priv = calloc(1, sizeof(struct disas_priv) + dd->page_size / 8);
+	if (!priv)
 		return -1;
 
-	init_disassemble_info(&info, &priv, disas_fn);
+	init_disassemble_info(&info, priv, disas_fn);
 	info.memory_error_func = error_func;
 	info.buffer        = dd->page;
 	info.buffer_vma    = addr;
@@ -222,18 +222,19 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	info.mach          = bfd_mach_i386_i386;
 	disassemble_init_for_target(&info);
 	if (dd->arch != ARCH_X86_64 && disas_at(dd, &info, 0)) {
-		free(priv.pagemap);
+		free(priv);
 		return 1;
 	}
 
 	/* Try x86_64 if that failed */
+	memset(priv, 0, sizeof(struct disas_priv) + dd->page_size / 8);
 	info.mach          = bfd_mach_x86_64;
 	disassemble_init_for_target(&info);
 	if (dd->arch != ARCH_X86 && disas_at(dd, &info, 0)) {
-		free(priv.pagemap);
+		free(priv);
 		return 1;
 	}
 
-	free(priv.pagemap);
+	free(priv);
 	return 0;
 }
