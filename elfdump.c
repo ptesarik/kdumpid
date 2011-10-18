@@ -173,7 +173,7 @@ pfn_to_mfn(struct elfdump_priv *edp, unsigned long pfn)
 }
 
 static int
-elf_read_xen(struct dump_desc *dd, unsigned long pfn)
+elf_read_xen_domU(struct dump_desc *dd, unsigned long pfn)
 {
 	struct elfdump_priv *edp = dd->priv;
         unsigned long mfn;
@@ -612,7 +612,7 @@ handle_common(struct dump_desc *dd)
 			goto fail;
 		}
 		dd->flags |= DIF_XEN;
-		dd->read_page = elf_read_xen;
+		dd->read_page = elf_read_xen_domU;
 	}
 
 	return explore_raw_data(dd);
