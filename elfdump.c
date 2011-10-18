@@ -24,6 +24,9 @@
 
 #include "kdumpid.h"
 
+/* System information exported through crash notes. */
+#define XEN_ELFNOTE_CRASH_INFO 0x1000001
+
 struct xen_p2m {
 	uint64_t pfn;
 	uint64_t gmfn; 
@@ -60,6 +63,7 @@ struct elfdump_priv {
 		xen_map_pfn,
 		xen_map_p2m,
 	} xen_map_type;
+	unsigned long xen_p2m_mfn;
 };
 
 static enum arch
@@ -403,6 +407,22 @@ init_elf64(struct dump_desc *dd, Elf64_Ehdr *ehdr)
 	return -1;
 }
 
+static void
+process_xen_note(struct dump_desc *dd, uint32_t type,
+		 void *desc, size_t descsz)
+{
+	struct elfdump_priv *edp = dd->priv;
+	unsigned words = descsz / dd->ptr_size;
+
+	if (type == XEN_ELFNOTE_CRASH_INFO) {
+		edp->xen_p2m_mfn = (dd->ptr_size == 8)
+			? dump64toh(dd, ((uint64_t*)desc)[words-1])
+			: dump32toh(dd, ((uint32_t*)desc)[words-1]);
+	}
+
+	dd->flags |= DIF_XEN;
+}
+
 #if 0
 	if (STREQ(name, ".note.Xen"))
 /*
@@ -475,6 +495,38 @@ xc_core_dump_elfnote(off_t sh_offset, size_t sh_size, int store)
 }
 #endif
 
+static void
+process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
+{
+	while (size >= sizeof(Elf32_Nhdr)) {
+		char *name, *desc;
+		Elf32_Word namesz = dump32toh(dd, hdr->n_namesz);
+		Elf32_Word descsz = dump32toh(dd, hdr->n_descsz);
+		Elf32_Word type = dump32toh(dd, hdr->n_type);
+		size_t descoff = sizeof(Elf32_Nhdr) + ((namesz + 3) & ~3);
+
+		if (size < descoff + ((descsz + 3) & ~3))
+			break;
+		size -= descoff + ((descsz + 3) & ~3);
+
+		name = (char*) (hdr + 1);
+		desc = (char*)hdr + descoff;
+		hdr = (Elf32_Nhdr*) (desc + ((descsz + 3) & ~3));
+
+		if (name[namesz-1]) {
+			fprintf(stderr, "WARNING: Unterminated note name\n");
+			continue;
+		}
+
+		if (namesz == sizeof("Xen") &&
+		    !strcmp(name, "Xen"))
+			process_xen_note(dd, type, desc, descsz);
+	}
+
+	if (size)
+		fprintf(stderr, "Warning: %zd junk bytes after notes\n", size);
+}
+
 static int
 handle_common(struct dump_desc *dd)
 {
@@ -483,6 +535,16 @@ handle_common(struct dump_desc *dd)
 
 	if (!edp->num_load_segments && !edp->num_sections)
 		return -1;
+
+	/* read notes */
+	for (i = 0; i < edp->num_note_segments; ++i) {
+		struct load_segment *seg = edp->note_segments + i;
+		Elf32_Nhdr *hdr = read_elf_seg(dd, seg);
+		if (!hdr)
+			goto fail;
+		process_notes(dd, hdr, seg->phys_end - seg->phys_start);
+		free(hdr);
+	}
 
 	/* get max PFN */
 	for (i = 0; i < edp->num_load_segments; ++i) {
