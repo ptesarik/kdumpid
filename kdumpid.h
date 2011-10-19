@@ -83,6 +83,7 @@ int handle_elfdump(struct dump_desc *dd);
 int handle_devmem(struct dump_desc *dd);
 
 /* Arch-specific helpers */
+int looks_like_kcode_s390(struct dump_desc *dd, uint64_t addr);
 int looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr);
 
 /* provide our own definition of new_utsname */

@@ -260,6 +260,9 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	static const enum arch x86_biarch[] = {
 		ARCH_X86, ARCH_X86_64, 0
 	};
+	static const enum arch zarch[] = {
+		ARCH_S390, ARCH_S390X, 0
+	};
 
 	uint64_t addr;
 
@@ -301,6 +304,16 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		addr = 2*1024*1024;
 		if (looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			return 0;
+		}
+	}
+
+	if (arch_in_array(dd->arch, zarch)) {
+		/* Linux/390 loads at 0 */
+		addr = 0;
+		if (looks_like_kcode_s390(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, zarch)) {
 			dd->start_addr = addr;
 			return 0;
 		}
