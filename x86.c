@@ -10,12 +10,14 @@
 
 struct disas_state {
 	unsigned long flags;
+	uint64_t sp_value;
 	uint32_t ecx_value;
 	int depth;
 };
 
 #define SI_STORED	1
 #define SI_MODIFIED	2
+#define SP_MODIFIED	4
 
 struct disas_priv {
 	char *iptr;
@@ -107,6 +109,26 @@ is_reg(const char *loc, const char *reg)
 }
 
 static int
+looks_like_kvaddr(struct disassemble_info *info, uint64_t addr)
+{
+	if (info->mach == bfd_mach_i386_i386) {
+		if (addr > 0xffffffff)
+			return 0;
+
+		/* TODO: handle other Memory split options
+		 *       than the default VMSPLIT_3G
+		 */
+		if (addr >= 0xc0000000)
+			return 1;
+	} else if (info->mach == bfd_mach_x86_64) {
+		if (addr >= 0xffffffff80000000)
+			return 1;
+	}
+
+	return 0;
+}
+
+static int
 disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 {
 	struct disas_priv *priv = info->stream;
@@ -160,9 +182,13 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			if (cont)
 				continue;
 
-			if (state.depth == 1 &&
-			    dd->flags & DIF_XEN && state.flags & SI_STORED)
+			if (!state.depth && dd->flags & DIF_XEN
+			    && state.flags & SI_STORED) {
+				if (state.flags & SP_MODIFIED &&
+				    looks_like_kvaddr(info, state.sp_value))
+					return 1;
 				return check_xen_early_idt_msg(dd);
+			}
 
 			break;
 		}
@@ -182,6 +208,11 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			if (is_reg(arg2, "cx") &&
 			    sscanf(arg1, "$0x%llx", &a) == 1)
 				state.ecx_value = a;
+			else if (is_reg(arg2, "sp") &&
+				 sscanf(arg1, "$0x%llx", &a) == 1) {
+				state.sp_value = a;
+				state.flags |= SP_MODIFIED;
+			}
 			else if (!strcmp(arg2, "%cr3") ||
 				 !strcmp(arg2, "%cr4"))
 				return 1;
