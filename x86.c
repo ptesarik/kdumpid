@@ -9,10 +9,13 @@
 #define MAX_INSN_LEN	100
 
 struct disas_state {
+	unsigned long flags;
 	uint32_t ecx_value;
-	int si_stored, si_modified;
 	int depth;
 };
+
+#define SI_STORED	1
+#define SI_MODIFIED	2
 
 struct disas_priv {
 	char *iptr;
@@ -158,7 +161,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 				continue;
 
 			if (state.depth == 1 &&
-			    dd->flags & DIF_XEN && state.si_stored)
+			    dd->flags & DIF_XEN && state.flags & SI_STORED)
 				return check_xen_early_idt_msg(dd);
 
 			break;
@@ -183,16 +186,16 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 				 !strcmp(arg2, "%cr4"))
 				return 1;
 			if (is_reg(arg1, "si")) {
-				state.si_stored = 1;
+				state.flags |= SI_STORED;
 				if (dd->flags & DIF_XEN &&
-				    !state.si_modified &&
+				    !(state.flags & SI_MODIFIED) &&
 				    sscanf(arg2, "0x%llx", &a) == 1)
 					dd->xen_start_info = a;
 			}
 		}
 
 		if (is_reg(arg2, "si"))
-			state.si_modified = 1;
+			state.flags |= SI_MODIFIED;
 	} while (count > 0);
 
 	return 0;
