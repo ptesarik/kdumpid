@@ -511,6 +511,15 @@ process_vmcoreinfo(struct dump_desc *dd, void *desc, size_t descsz)
 	}
 }
 
+static int
+note_equal(const char *name, const char *notename, size_t notenamesz)
+{
+	size_t namelen = strlen(name);
+	if (notenamesz >= namelen && notenamesz <= namelen + 1)
+		return !memcmp(name, notename, notenamesz);
+	return 0;
+}
+
 static void
 process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 {
@@ -529,19 +538,11 @@ process_notes(struct dump_desc *dd, Elf32_Nhdr *hdr, size_t size)
 		desc = (char*)hdr + descoff;
 		hdr = (Elf32_Nhdr*) (desc + ((descsz + 3) & ~3));
 
-		if (name[namesz-1]) {
-			fprintf(stderr, "WARNING: Unterminated note name\n");
-			continue;
-		}
-
-		if (namesz == sizeof("Xen") &&
-		    !strcmp(name, "Xen"))
+		if (note_equal("Xen", name, namesz))
 			process_xen_note(dd, type, desc, descsz);
-		else if (namesz == sizeof(".note.Xen") &&
-			 !strcmp(name, ".note.Xen"))
+		else if (note_equal(".note.Xen", name, namesz))
 			process_xc_xen_note(dd, type, desc, descsz);
-		else if (namesz == sizeof("VMCOREINFO") &&
-			 !strcmp(name, "VMCOREINFO"))
+		else if (note_equal("VMCOREINFO", name, namesz))
 			process_vmcoreinfo(dd, desc, descsz);
 	}
 
