@@ -225,13 +225,10 @@ handle_v8(struct dump_desc *dd)
 }
 
 int
-handle_lkcd(struct dump_desc *dd)
+handle_common(struct dump_desc *dd)
 {
 	struct dump_header_common *dh = dd->buffer;
 	int32_t version;
-
-	/* TODO: Is there a big endian version of LKCD? */
-	dd->endian = __LITTLE_ENDIAN;
 
 	version = dump32toh(dd, dh->dh_version);
 	snprintf(dd->format, sizeof(dd->format),
@@ -258,4 +255,18 @@ handle_lkcd(struct dump_desc *dd)
 			base_version(version), (long)version);
 		return -1;
 	}
+}
+
+int
+handle_lkcd_le(struct dump_desc *dd)
+{
+	dd->endian = __LITTLE_ENDIAN;
+	return handle_common(dd);
+}
+
+int
+handle_lkcd_be(struct dump_desc *dd)
+{
+	dd->endian = __BIG_ENDIAN;
+	return handle_common(dd);
 }

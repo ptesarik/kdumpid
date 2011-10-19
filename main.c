@@ -68,9 +68,10 @@ static const char magic_diskdump[] =
 	{ 'D', 'I', 'S', 'K', 'D', 'U', 'M', 'P' };
 static const char magic_kdump[] =
 	{ 'K', 'D', 'U', 'M', 'P', ' ', ' ', ' ' };
-/* TODO: is there a big-endian variant? */
-static const char magic_lkcd[] =
+static const char magic_lkcd_le[] =
 	{ 0xed, 0x23, 0x8f, 0x61, 0x73, 0x01, 0x19, 0xa8 };
+static const char magic_lkcd_be[] =
+	{ 0xa8, 0x19, 0x01, 0x73, 0x61, 0x8f, 0x23, 0xed };
 static const char magic_mclxcd[] =
 	{ 0xdd, 0xcc, 0x8b, 0x9a };
 static const char magic_s390[] =
@@ -136,7 +137,8 @@ static struct crash_file formats[] = {
 	FORMAT(xc_core_hvm),
 	FORMAT(diskdump),
 	FORMAT(kdump),
-	FORMAT(lkcd),
+	FORMAT(lkcd_le),
+	FORMAT(lkcd_be),
 	FORMAT(mclxcd),
 	FORMAT(s390),
 	FORMAT(devmem),

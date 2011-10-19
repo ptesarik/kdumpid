@@ -69,7 +69,8 @@ struct dump_desc {
 #define DIF_XEN		2
 
 /* LKCD */
-int handle_lkcd(struct dump_desc *dd);
+int handle_lkcd_le(struct dump_desc *dd);
+int handle_lkcd_be(struct dump_desc *dd);
 
 /* diskdump/compressed kdump */
 int handle_diskdump(struct dump_desc *dd);
