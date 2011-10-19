@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #define VER_MAJOR	0
-#define VER_MINOR	1
+#define VER_MINOR	9
 
 /* This should cover all possibilities:
  * - no supported architecture has less than 4K pages.
