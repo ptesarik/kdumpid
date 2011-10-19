@@ -1,10 +1,35 @@
-CFLAGS?=-ggdb -Wall -O0 -D_FILE_OFFSET_BITS=64
+#### CONFIGURATION
+
+ifndef PREFIX
+PREFIX=/usr/local
+endif
+ifndef BINDIR
+BINDIR=$(PREFIX)/bin
+endif
+
+CUSTOM_CFLAGS=
+LIBS += -lz -lopcodes -lbfd -liberty -ldl
+
+LD=ld
+
+### CONFIGURATION END
+
+ifndef INSTALL
+INSTALL=/usr/bin/install
+endif
+
 OBJS=main.o lkcd.o devmem.o diskdump.o elfdump.o util.o search.o \
 	s390.o x86.o
-LIBS=-lz -lopcodes -lbfd -liberty -ldl
+
+all: kdumpid
 
 kdumpid: $(OBJS)
-	gcc $(CFLAGS) -o $@ $+ $(LIBS)
+	$(call cmd,link)
+
+install:
+	$(INSTALL) -D ./kdumpid $(DESTDIR)$(BINDIR)/hed
 
 clean:
-	rm $(OBJS) kdumpid
+	rm -f $(OBJS) kdumpid
+
+-include Makefile.lib
