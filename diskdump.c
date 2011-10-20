@@ -29,6 +29,7 @@ struct disk_dump_header_32 {
 	char			signature[SIG_LEN];	/* = "DISKDUMP" */
 	int32_t			header_version; /* Dump header version */
 	struct new_utsname	utsname;	/* copy of system_utsname */
+	char			_pad1[2];	/* alignment */
 	struct timeval_32	timestamp;	/* Time stamp */
 	uint32_t		status; 	/* Above flags */
 	int32_t			block_size;	/* Size of a block in byte */
@@ -45,14 +46,14 @@ struct disk_dump_header_32 {
 	uint32_t		current_cpu;	/* CPU# which handles dump */
 	int32_t			nr_cpus;	/* Number of CPUs */
 	uint32_t		tasks[0];	/* "struct task_struct *" */
-};
+} __attribute__((packed));
 
 /* The header is architecture-dependent, unfortunately */
 struct disk_dump_header_64 {
 	char			signature[SIG_LEN];	/* = "DISKDUMP" */
 	int32_t			header_version; /* Dump header version */
 	struct new_utsname	utsname;	/* copy of system_utsname */
-	uint32_t		_pad1;		/* alignment */
+	char			_pad1[6];	/* alignment */
 	struct timeval_64	timestamp;	/* Time stamp */
 	uint32_t		status; 	/* Above flags */
 	int32_t			block_size;	/* Size of a block in byte */
@@ -69,7 +70,7 @@ struct disk_dump_header_64 {
 	uint32_t		current_cpu;	/* CPU# which handles dump */
 	int32_t			nr_cpus;	/* Number of CPUs */
 	uint64_t		tasks[0];	/* "struct task_struct *" */
-};
+} __attribute__((packed));
 
 /* descriptor of each page for vmcore */
 struct page_desc {
