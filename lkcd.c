@@ -187,7 +187,7 @@ handle_v1(struct dump_desc *dd)
 	struct dump_header_v1_64 *dh64 = dd->buffer;
 
 	if (!uts_looks_sane(&dh32->dh_utsname) &&
-	    uts_looks_sane(&dh32->dh_utsname)) {
+	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
 	} else {
@@ -204,7 +204,7 @@ handle_v2(struct dump_desc *dd)
 	struct dump_header_v2_64 *dh64 = dd->buffer;
 
 	if (!uts_looks_sane(&dh32->dh_utsname) &&
-	    uts_looks_sane(&dh32->dh_utsname)) {
+	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
 	} else {
