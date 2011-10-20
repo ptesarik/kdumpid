@@ -82,6 +82,9 @@ struct dump_header_v1_32 {
 	/* the utsname (uname) information */
 	struct new_utsname   dh_utsname;
 
+	/* alignment */
+	char                 _pad2[2];
+
 /* Other fields follow... */
 } __attribute__((packed));
 
@@ -102,11 +105,17 @@ struct dump_header_v1_64 {
 	/* the panic string, if available */
 	char                 dh_panic_string[DUMP_PANIC_LEN];
 
+	/* alignment */
+	char                 _pad1[4];
+
 	/* the time of the system crash */
 	struct timeval_64    dh_time;
 
 	/* the utsname (uname) information */
 	struct new_utsname   dh_utsname;
+
+	/* alignment */
+	char                 _pad2[2];
 
 /* Other fields follow... */
 } __attribute__((packed));
@@ -128,7 +137,22 @@ struct dump_header_v2_32 {
 	/* the utsname (uname) information */
 	struct new_utsname   dh_utsname;
 
-/* Other fields follow... */
+	/* alignment */
+	char                 _pad1[2];
+
+	/* the address of current task */
+	uint32_t             dh_current_task;
+
+/* following fields only in LKCDv5+ */
+
+	/* type of compression used in this dump */
+	uint32_t             dh_dump_compress;
+
+	/* any additional flags */
+	uint32_t             dh_dump_flags;
+
+	/* dump device */
+	uint32_t             dh_dump_device;
 } __attribute__((packed));
 
 /* LKCDv2 .. LKCDv7 64-bit variant */
@@ -142,13 +166,31 @@ struct dump_header_v2_64 {
 	/* the panic string, if available */
 	char                 dh_panic_string[DUMP_PANIC_LEN];
 
+	/* alignment */
+	char                 _pad1[4];
+
 	/* the time of the system crash */
 	struct timeval_64    dh_time;
 
 	/* the utsname (uname) information */
 	struct new_utsname   dh_utsname;
 
-/* Other fields follow... */
+	/* alignment */
+	char                 _pad2[2];
+
+	/* the address of current task */
+	uint64_t             dh_current_task;
+
+/* following fields only in LKCDv5+ */
+
+	/* type of compression used in this dump */
+	uint32_t             dh_dump_compress;
+
+	/* any additional flags */
+	uint32_t             dh_dump_flags;
+
+	/* dump device */
+	uint32_t             dh_dump_device;
 } __attribute__((packed));
 
 /* LKCDv8 unified variant */
