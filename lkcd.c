@@ -12,8 +12,13 @@
  * GNU General Public License for more details.
  */
 
+#define _GNU_SOURCE
+
 #include <endian.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
 
 #include "kdumpid.h"
 
@@ -238,12 +243,228 @@ struct dump_header_v8 {
 	uint64_t             dh_dump_buffer_size;
 } __attribute__((packed));
 
+/* dump_page flags */
+#define DUMP_RAW            0x1      /* raw page (no compression)        */
+#define DUMP_COMPRESSED     0x2      /* page is compressed               */
+#define DUMP_END            0x4      /* end marker on a full dump        */
+
+struct dump_page {
+	/* the address of this dump page */
+        uint64_t             dp_address;
+
+        /* the size of this dump page */
+        uint32_t             dp_size;
+
+        /* flags (currently DUMP_COMPRESSED, DUMP_RAW or DUMP_END) */
+        uint32_t             dp_flags;
+} __attribute__((packed));
+
+/* Split the 32-bit PFN into 3 indices */
+#define PFN_IDX1_BITS	10
+#define PFN_IDX2_BITS	10
+#define PFN_IDX3_BITS	12
+
+#define PFN_IDX1_SIZE	((uint32_t)1 << PFN_IDX1_BITS)
+#define PFN_IDX2_SIZE	((uint32_t)1 << PFN_IDX2_BITS)
+#define PFN_IDX3_SIZE	((uint32_t)1 << PFN_IDX3_BITS)
+
+#define pfn_idx1(pfn) \
+	((uint32_t)(pfn) >> (PFN_IDX3_BITS + PFN_IDX2_BITS))
+#define pfn_idx2(pfn) \
+	(((uint32_t)(pfn) >> PFN_IDX3_BITS) & (PFN_IDX2_SIZE - 1))
+#define pfn_idx3(pfn) \
+	((uint32_t)(pfn) & (PFN_IDX3_SIZE - 1))
+
+/* Level-3 tables contain only a 32-bit offset from the level-2 page
+ * beginning, cutting their size by 50%. A 32-bit offset must be
+ * enough, because max page shift is 18 and pfn_idx3 has 12 bits:
+ * 18 + 12 = 30 and 30 < 32
+ */
+
+struct pfn_level2 {
+	off_t off;
+	uint32_t *pfn_level3;
+};
+
 struct lkcd_priv {
 	off_t data_offset;	/* offset to 1st page */
 	long version;
 	uint32_t max_pfn;
 	unsigned compression;
+	struct pfn_level2 **pfn_level1;
 };
+
+static off_t
+find_page(struct dump_desc *dd, off_t off, unsigned pfn, struct dump_page *dp)
+{
+	uint64_t addr = pfn * dd->page_size;
+
+	for ( ;; ) {
+		if (pread(dd->fd, dp, sizeof *dp, off) != sizeof *dp)
+			return -1;
+		dp->dp_address = dump64toh(dd, dp->dp_address);
+		dp->dp_size = dump32toh(dd, dp->dp_size);
+		if (dp->dp_address >= addr)
+			break;
+		off += sizeof(struct dump_page) + dp->dp_size;
+	}
+
+	dp->dp_flags = dump32toh(dd, dp->dp_flags);
+	return off;
+}
+
+static int
+fill_level1(struct dump_desc *dd, unsigned endidx)
+{
+	struct lkcd_priv *lkcdp = dd->priv;
+	off_t off = lkcdp->data_offset;
+	struct pfn_level2 **p;
+	unsigned idx;
+
+	for (p = lkcdp->pfn_level1, idx = 0; idx < endidx; ++p, ++idx) {
+		if (!*p)
+			break;
+		off = (*p)->off;
+	}
+
+	for ( ; idx <= endidx; ++p, ++idx) {
+		struct dump_page dp;
+		uint32_t pfn;
+
+		*p = calloc(PFN_IDX2_SIZE, sizeof(struct pfn_level2));
+		if (!*p) {
+			perror("Cannot allocate PFN mapping");
+			return -1;
+		}
+		pfn = idx << (PFN_IDX3_BITS + PFN_IDX2_BITS);
+		if ( (off = find_page(dd, off, pfn, &dp)) < 0)
+			return -1;
+		(*p)->off = off;
+	}
+
+	return 0;
+}
+
+static int
+fill_level2(struct dump_desc *dd, unsigned idx1, unsigned endidx)
+{
+	struct lkcd_priv *lkcdp = dd->priv;
+	struct pfn_level2 *p = lkcdp->pfn_level1[idx1];
+	off_t off, baseoff;
+	struct dump_page dp;
+	uint32_t pfn;
+	uint32_t *pp;
+	unsigned idx;
+
+	baseoff = p->off;
+	for (idx = 0; idx <= endidx; ++p, ++idx) {
+		if (!p->pfn_level3)
+			break;
+		baseoff = p->off;
+	}
+
+	pfn = ((idx1 << PFN_IDX2_BITS) + idx) << PFN_IDX3_BITS;
+	for ( ; idx < endidx; ++p, ++idx) {
+		if ( (baseoff = find_page(dd, baseoff, pfn, &dp)) < 0)
+			return -1;
+		p->off = baseoff;
+		pfn += PFN_IDX3_SIZE;
+	}
+	if (idx) {
+		if ( (baseoff = find_page(dd, baseoff, pfn, &dp)) < 0)
+			return -1;
+		p->off = baseoff;
+	}
+
+	pp = malloc(PFN_IDX3_SIZE * sizeof(uint32_t));
+	if (!pp) {
+		perror("Cannot allocate PFN mapping");
+		return -1;
+	}
+	p->pfn_level3 = pp;
+	memset(pp, -1, PFN_IDX3_SIZE * sizeof(uint32_t));
+
+	off = baseoff;
+	for (idx = 0; idx < PFN_IDX3_SIZE; ++idx, ++pp) {
+		if ( (off = find_page(dd, off, pfn, &dp)) < 0)
+			break;
+		if (dp.dp_address == pfn * dd->page_size)
+			*pp = off - baseoff;
+		pfn++;
+	}
+
+	return 0;
+}
+
+static int 
+lkcd_read_page(struct dump_desc *dd, unsigned long pfn)
+{
+	struct lkcd_priv *lkcdp = dd->priv;
+	struct pfn_level2 *pfn_level2;
+	uint32_t *pfn_level3;
+	unsigned idx1, idx2, idx3;
+	struct dump_page dp;
+	unsigned type;
+	off_t off;
+	void *buf;
+
+	if (pfn >= lkcdp->max_pfn)
+		return -1;
+
+	idx1 = pfn_idx1(pfn);
+	if (!lkcdp->pfn_level1[idx1] &&
+	    fill_level1(dd, idx1))
+		return -1;
+	pfn_level2 = lkcdp->pfn_level1[idx1];
+
+	idx2 = pfn_idx2(pfn);
+	if (!pfn_level2[idx2].pfn_level3 &&
+	    fill_level2(dd, idx1, idx2))
+		return -1;
+	off = pfn_level2[idx2].off;
+	pfn_level3 = pfn_level2[idx2].pfn_level3;
+
+	idx3 = pfn_idx3(pfn);
+	if (pfn_level3[idx3] == (uint32_t)-1)
+		return -1;
+	off += pfn_level3[idx3];
+
+	if (find_page(dd, off, pfn, &dp) < 0)
+		return -1;
+	off += sizeof(struct dump_page);
+
+	type = dp.dp_flags & (DUMP_COMPRESSED|DUMP_RAW);
+	switch (type) {
+	case DUMP_COMPRESSED:
+		if (dp.dp_size > MAX_PAGE_SIZE)
+			return -1;
+		buf = dd->buffer;
+		break;
+	case DUMP_RAW:
+		if (dp.dp_size != dd->page_size)
+			return -1;
+		buf = dd->page;
+		break;
+	default:
+		fprintf(stderr, "WARNING: "
+			"Unknown page type for PFN %lu: %u\n", pfn, type);
+		return -1;
+	}
+
+	/* read page data */
+	if (pread(dd->fd, buf, dp.dp_size, off) != dp.dp_size)
+		return -1;
+
+	if (type == DUMP_COMPRESSED) {
+		uLongf retlen = dd->page_size;
+		int ret = uncompress(dd->page, &retlen,
+				     buf, dp.dp_size);
+		if ((ret != Z_OK) || (retlen != dd->page_size))
+			return -1;
+	}
+
+	return 0;
+}
 
 static inline long
 base_version(int32_t version)
@@ -321,6 +542,7 @@ handle_common(struct dump_desc *dd)
 	struct dump_header_common *dh = dd->buffer;
 	struct lkcd_priv lkcdp;
 	int32_t version;
+	unsigned max_idx1;
 	int res = -1;
 
 	version = dump32toh(dd, dh->dh_version);
@@ -330,6 +552,8 @@ handle_common(struct dump_desc *dd)
 
 	lkcdp.data_offset = LKCD_OFFSET_TO_FIRST_PAGE;
 
+	dd->read_page = lkcd_read_page;
+	dd->page_size = dump32toh(dd, dh->dh_page_size);
 	dd->priv = &lkcdp;
 
 	switch(lkcdp.version) {
@@ -357,7 +581,19 @@ handle_common(struct dump_desc *dd)
 		return -1;
 	}
 
-	return res;
+	if (res)
+		return res;
+	if (dd->machine[0] && dd->ver[0])
+		return 0;
+
+	max_idx1 = pfn_idx1(lkcdp.max_pfn - 1) + 1;
+	lkcdp.pfn_level1 = calloc(max_idx1, sizeof(struct pfn_level2*));
+	if (!lkcdp.pfn_level1) {
+		perror("Cannot allocate PFN mapping");
+		return -1;
+	}
+
+	return explore_raw_data(dd);
 }
 
 int
