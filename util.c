@@ -449,9 +449,9 @@ explore_raw_data(struct dump_desc *dd)
 	}
 
 	ret = -1;
-	ret &= explore_kernel(dd, explore_banner);
 	ret &= explore_kernel(dd, explore_utsname);
 	explore_kernel(dd, explore_ikcfg);
+	ret &= explore_kernel(dd, explore_banner);
 
 	free(dd->page);
 
