@@ -231,6 +231,10 @@ struct dump_header_v8 {
 	uint64_t             dh_dump_buffer_size;
 } __attribute__((packed));
 
+struct lkcd_priv {
+	long version;
+};
+
 static inline long
 base_version(int32_t version)
 {
@@ -285,13 +289,17 @@ int
 handle_common(struct dump_desc *dd)
 {
 	struct dump_header_common *dh = dd->buffer;
+	struct lkcd_priv lkcdp;
 	int32_t version;
 
 	version = dump32toh(dd, dh->dh_version);
+	lkcdp.version = base_version(version);
 	snprintf(dd->format, sizeof(dd->format),
-		 "LKCD v%ld", base_version(version));
+		 "LKCD v%ld", lkcdp.version);
 
-	switch(base_version(version)) {
+	dd->priv = &lkcdp;
+
+	switch(lkcdp.version) {
 	case LKCD_DUMP_V1:
 		return handle_v1(dd);
 
@@ -309,7 +317,7 @@ handle_common(struct dump_desc *dd)
 
 	default:
 		fprintf(stderr, "unsupported LKCD dump version: %ld (%lx)\n", 
-			base_version(version), (long)version);
+			lkcdp.version, (long)version);
 		return -1;
 	}
 }
