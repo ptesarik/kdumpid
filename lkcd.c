@@ -30,7 +30,14 @@
 #define LKCD_DUMP_MCLX_V0            (0x80000000)   /* MCLX mod of LKCD */
 #define LKCD_DUMP_MCLX_V1            (0x40000000)   /* Extra page header data */
 
+#define LKCD_OFFSET_TO_FIRST_PAGE    (65536)
+
 #define DUMP_PANIC_LEN 0x100
+
+/* dump compression options */
+#define DUMP_COMPRESS_NONE     0x0      /* don't compress this dump         */
+#define DUMP_COMPRESS_RLE      0x1      /* use RLE compression              */
+#define DUMP_COMPRESS_GZIP     0x2      /* use GZIP compression             */
 
 /* common header fields for all versions */
 struct dump_header_common {
@@ -232,7 +239,10 @@ struct dump_header_v8 {
 } __attribute__((packed));
 
 struct lkcd_priv {
+	off_t data_offset;	/* offset to 1st page */
 	long version;
+	uint32_t max_pfn;
+	unsigned compression;
 };
 
 static inline long
@@ -244,6 +254,7 @@ base_version(int32_t version)
 static int
 init_v1(struct dump_desc *dd)
 {
+	struct lkcd_priv *lkcdp = dd->priv;
 	struct dump_header_v1_32 *dh32 = dd->buffer;
 	struct dump_header_v1_64 *dh64 = dd->buffer;
 
@@ -251,16 +262,21 @@ init_v1(struct dump_desc *dd)
 	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
+		lkcdp->max_pfn = dump32toh(dd, dh64->dh_num_pages);
 	} else {
 		copy_uts_string(dd->machine, dh32->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh32->dh_utsname.release);
+		lkcdp->max_pfn = dump32toh(dd, dh32->dh_num_pages);
 	}
+	lkcdp->compression = DUMP_COMPRESS_RLE;
+
 	return 0;
 }
 
 static int
 init_v2(struct dump_desc *dd)
 {
+	struct lkcd_priv *lkcdp = dd->priv;
 	struct dump_header_v2_32 *dh32 = dd->buffer;
 	struct dump_header_v2_64 *dh64 = dd->buffer;
 
@@ -268,9 +284,17 @@ init_v2(struct dump_desc *dd)
 	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
+		lkcdp->max_pfn = dump32toh(dd, dh64->dh_num_pages);
+		lkcdp->compression = (lkcdp->version >= LKCD_DUMP_V5)
+			? dump32toh(dd, dh64->dh_dump_compress)
+			: DUMP_COMPRESS_RLE;
 	} else {
 		copy_uts_string(dd->machine, dh32->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh32->dh_utsname.release);
+		lkcdp->max_pfn = dump32toh(dd, dh32->dh_num_pages);
+		lkcdp->compression = (lkcdp->version >= LKCD_DUMP_V5)
+			? dump32toh(dd, dh32->dh_dump_compress)
+			: DUMP_COMPRESS_RLE;
 	}
 	return 0;
 }
@@ -278,10 +302,16 @@ init_v2(struct dump_desc *dd)
 static int
 init_v8(struct dump_desc *dd)
 {
+	struct lkcd_priv *lkcdp = dd->priv;
 	struct dump_header_v8 *dh = dd->buffer;
 
 	copy_uts_string(dd->machine, dh->dh_utsname.machine);
 	copy_uts_string(dd->ver, dh->dh_utsname.release);
+	lkcdp->max_pfn = dump32toh(dd, dh->dh_num_pages);
+	lkcdp->compression = dump32toh(dd, dh->dh_dump_compress);
+	if (lkcdp->version >= LKCD_DUMP_V9)
+		lkcdp->data_offset = dump64toh(dd, dh->dh_dump_buffer_size);
+
 	return 0;
 }
 
@@ -297,6 +327,8 @@ handle_common(struct dump_desc *dd)
 	lkcdp.version = base_version(version);
 	snprintf(dd->format, sizeof(dd->format),
 		 "LKCD v%ld", lkcdp.version);
+
+	lkcdp.data_offset = LKCD_OFFSET_TO_FIRST_PAGE;
 
 	dd->priv = &lkcdp;
 
