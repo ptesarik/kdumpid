@@ -275,6 +275,8 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	static const enum arch zarch[] = {
 		ARCH_S390, ARCH_S390X, 0
 	};
+	static const enum arch ppc[] = { ARCH_PPC, 0 };
+	static const enum arch ppc64[] = { ARCH_PPC64, 0 };
 
 	uint64_t addr;
 
@@ -318,6 +320,28 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		addr = 2*1024*1024;
 		if (looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
+			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
+			return 0;
+		}
+	}
+
+	if (arch_in_array(dd->arch, ppc64)) {
+		/* PPC64 loads at 0 */
+		addr = 0;
+		if (looks_like_kcode_ppc64(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, zarch)) {
+			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
+			return 0;
+		}
+	}
+
+	if (arch_in_array(dd->arch, ppc)) {
+		/* POWER also loads at 0 */
+		addr = 0;
+		if (looks_like_kcode_ppc(dd, addr) > 0 &&
+		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, zarch)) {
 			dd->start_addr = addr;
 			dd->flags |= DIF_START_FOUND;
 			return 0;

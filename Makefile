@@ -19,7 +19,7 @@ INSTALL=/usr/bin/install
 endif
 
 OBJS=main.o lkcd.o devmem.o diskdump.o elfdump.o util.o search.o \
-	s390.o x86.o
+	ppc.o ppc64.o s390.o x86.o
 
 all: kdumpid
 
