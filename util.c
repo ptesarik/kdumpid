@@ -154,11 +154,12 @@ get_version_from_banner(struct dump_desc *dd)
 int
 need_explore(struct dump_desc *dd)
 {
-	if (dd->machine[0]) {
+	if (dd->machine[0])
 		dd->arch = get_machine_arch(dd->machine);
-		if (dd->ver[0] && !(dd->flags & DIF_VERBOSE))
-			return 0;
-	}
+
+	if (!(dd->flags & DIF_VERBOSE) &&
+	    dd->arch != ARCH_UNKNOWN && dd->ver[0])
+		return 0;
 	return 1;
 }
 
