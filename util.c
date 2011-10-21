@@ -465,12 +465,8 @@ uncompress_rle(unsigned char *dst, size_t *pdstlen,
 	const unsigned char *srcend = src + srclen;
 	size_t remain = *pdstlen;
 
-        int i;
-        unsigned char value, count, cur_byte;
-        uint32_t ri, wi;
-
 	while (src < srcend) {
-		unsigned char byte, cnt, val;
+		unsigned char byte, cnt;
 
 		if (! (byte = *src++)) {
 			if (src >= srcend)
