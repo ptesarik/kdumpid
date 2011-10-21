@@ -174,7 +174,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			if (a < info->buffer_vma + dd->page_size) {
 				priv->initstate = state;
 				++priv->initstate.depth;
-				if (disas_at(dd, info, a))
+				if (disas_at(dd, info, a) > 0)
 					return 1;
 				--priv->initstate.depth;
 			}
@@ -258,7 +258,7 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	/* Try i386 code first */
 	info.mach          = bfd_mach_i386_i386;
 	disassemble_init_for_target(&info);
-	if (dd->arch != ARCH_X86_64 && disas_at(dd, &info, 0)) {
+	if (dd->arch != ARCH_X86_64 && disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
 	}
@@ -267,7 +267,7 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	memset(priv, 0, sizeof(struct disas_priv) + dd->page_size / 8);
 	info.mach          = bfd_mach_x86_64;
 	disassemble_init_for_target(&info);
-	if (dd->arch != ARCH_X86 && disas_at(dd, &info, 0)) {
+	if (dd->arch != ARCH_X86 && disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
 	}
