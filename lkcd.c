@@ -289,7 +289,6 @@ struct pfn_level2 {
 struct lkcd_priv {
 	off_t data_offset;	/* offset to 1st page */
 	long version;
-	uint32_t max_pfn;
 	unsigned compression;
 	struct pfn_level2 **pfn_level1;
 };
@@ -408,7 +407,7 @@ lkcd_read_page(struct dump_desc *dd, unsigned long pfn)
 	off_t off;
 	void *buf;
 
-	if (pfn >= lkcdp->max_pfn)
+	if (pfn >= dd->max_pfn)
 		return -1;
 
 	idx1 = pfn_idx1(pfn);
@@ -493,11 +492,9 @@ init_v1(struct dump_desc *dd)
 	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
-		lkcdp->max_pfn = dump32toh(dd, dh64->dh_num_pages);
 	} else {
 		copy_uts_string(dd->machine, dh32->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh32->dh_utsname.release);
-		lkcdp->max_pfn = dump32toh(dd, dh32->dh_num_pages);
 	}
 	lkcdp->compression = DUMP_COMPRESS_RLE;
 
@@ -515,14 +512,12 @@ init_v2(struct dump_desc *dd)
 	    uts_looks_sane(&dh64->dh_utsname)) {
 		copy_uts_string(dd->machine, dh64->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh64->dh_utsname.release);
-		lkcdp->max_pfn = dump32toh(dd, dh64->dh_num_pages);
 		lkcdp->compression = (lkcdp->version >= LKCD_DUMP_V5)
 			? dump32toh(dd, dh64->dh_dump_compress)
 			: DUMP_COMPRESS_RLE;
 	} else {
 		copy_uts_string(dd->machine, dh32->dh_utsname.machine);
 		copy_uts_string(dd->ver, dh32->dh_utsname.release);
-		lkcdp->max_pfn = dump32toh(dd, dh32->dh_num_pages);
 		lkcdp->compression = (lkcdp->version >= LKCD_DUMP_V5)
 			? dump32toh(dd, dh32->dh_dump_compress)
 			: DUMP_COMPRESS_RLE;
@@ -538,7 +533,6 @@ init_v8(struct dump_desc *dd)
 
 	copy_uts_string(dd->machine, dh->dh_utsname.machine);
 	copy_uts_string(dd->ver, dh->dh_utsname.release);
-	lkcdp->max_pfn = dump32toh(dd, dh->dh_num_pages);
 	lkcdp->compression = dump32toh(dd, dh->dh_dump_compress);
 	if (lkcdp->version >= LKCD_DUMP_V9)
 		lkcdp->data_offset = dump64toh(dd, dh->dh_dump_buffer_size);
@@ -564,6 +558,7 @@ handle_common(struct dump_desc *dd)
 
 	dd->read_page = lkcd_read_page;
 	dd->page_size = dump32toh(dd, dh->dh_page_size);
+	dd->max_pfn = dump64toh(dd, dh->dh_memory_size);
 	dd->priv = &lkcdp;
 
 	switch(lkcdp.version) {
@@ -596,7 +591,7 @@ handle_common(struct dump_desc *dd)
 	if (!need_explore(dd))
 		return 0;
 
-	max_idx1 = pfn_idx1(lkcdp.max_pfn - 1) + 1;
+	max_idx1 = pfn_idx1(dd->max_pfn - 1) + 1;
 	lkcdp.pfn_level1 = calloc(max_idx1, sizeof(struct pfn_level2*));
 	if (!lkcdp.pfn_level1) {
 		perror("Cannot allocate PFN mapping");
