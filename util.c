@@ -156,7 +156,7 @@ need_explore(struct dump_desc *dd)
 {
 	if (dd->machine[0]) {
 		dd->arch = get_machine_arch(dd->machine);
-		if (dd->ver[0])
+		if (dd->ver[0] && !(dd->flags & DIF_VERBOSE))
 			return 0;
 	}
 	return 1;

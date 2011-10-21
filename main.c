@@ -156,7 +156,8 @@ version(FILE *out, const char *progname)
 static void
 help(FILE *out, const char *progname)
 {
-	fprintf(out, "Usage: %s [-v] <dumpfile>\n", basename(progname));
+	fprintf(out, "Usage: %s [-f] [-v] <dumpfile>\n",
+		basename(progname));
 }
 
 #define SHORTOPTS	"fhv"
@@ -167,6 +168,7 @@ main(int argc, char **argv)
 	static const struct option opts[] = {
 		{ "force", no_argument, NULL, 'f' },
 		{ "help", no_argument, NULL, 'h' },
+		{ "verbose", no_argument, NULL, 'v' },
 		{ "version", no_argument, NULL, 256 },
 		{0, 0, 0, 0}
 	};
@@ -186,6 +188,9 @@ main(int argc, char **argv)
 		case 'h':
 			help(stdout, argv[0]);
 			return 0;
+		case 'v':
+			dd.flags |= DIF_VERBOSE;
+			break;
 		case 256:
 			version(stdout, argv[0]);
 			return 0;
