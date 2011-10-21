@@ -242,7 +242,7 @@ base_version(int32_t version)
 }
 
 static int
-handle_v1(struct dump_desc *dd)
+init_v1(struct dump_desc *dd)
 {
 	struct dump_header_v1_32 *dh32 = dd->buffer;
 	struct dump_header_v1_64 *dh64 = dd->buffer;
@@ -259,7 +259,7 @@ handle_v1(struct dump_desc *dd)
 }
 
 static int
-handle_v2(struct dump_desc *dd)
+init_v2(struct dump_desc *dd)
 {
 	struct dump_header_v2_32 *dh32 = dd->buffer;
 	struct dump_header_v2_64 *dh64 = dd->buffer;
@@ -276,7 +276,7 @@ handle_v2(struct dump_desc *dd)
 }
 
 static int
-handle_v8(struct dump_desc *dd)
+init_v8(struct dump_desc *dd)
 {
 	struct dump_header_v8 *dh = dd->buffer;
 
@@ -291,6 +291,7 @@ handle_common(struct dump_desc *dd)
 	struct dump_header_common *dh = dd->buffer;
 	struct lkcd_priv lkcdp;
 	int32_t version;
+	int res = -1;
 
 	version = dump32toh(dd, dh->dh_version);
 	lkcdp.version = base_version(version);
@@ -301,25 +302,30 @@ handle_common(struct dump_desc *dd)
 
 	switch(lkcdp.version) {
 	case LKCD_DUMP_V1:
-		return handle_v1(dd);
+		res = init_v1(dd);
+		break;
 
 	case LKCD_DUMP_V2:
 	case LKCD_DUMP_V3:
 	case LKCD_DUMP_V5:
 	case LKCD_DUMP_V6:
 	case LKCD_DUMP_V7:
-		return handle_v2(dd);
+		res = init_v2(dd);
+		break;
 
 	case LKCD_DUMP_V8:
 	case LKCD_DUMP_V9:
 	case LKCD_DUMP_V10:
-		return handle_v8(dd);
+		res = init_v8(dd);
+		break;
 
 	default:
 		fprintf(stderr, "unsupported LKCD dump version: %ld (%lx)\n", 
 			lkcdp.version, (long)version);
 		return -1;
 	}
+
+	return res;
 }
 
 int
