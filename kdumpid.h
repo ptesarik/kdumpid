@@ -67,6 +67,7 @@ struct dump_desc {
 /* Kdumpid flags */
 #define DIF_FORCE	1
 #define DIF_XEN		2
+#define DIF_START_FOUND	4
 
 /* LKCD */
 int handle_lkcd_le(struct dump_desc *dd);

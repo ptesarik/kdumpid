@@ -269,18 +269,18 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	if (dd->flags & DIF_FORCE)
 		return fn(dd, 0, dd->max_pfn * dd->page_size, all_archs);
 
-	if (arch_in_array(dd->arch, x86_biarch)) {
-		if (dd->start_addr != INVALID_ADDR)
-			return fn(dd, dd->start_addr,
-				  dd->start_addr + MAX_KERNEL_SIZE,
-				  x86_biarch);
+	if (dd->flags & DIF_START_FOUND)
+		return fn(dd, dd->start_addr,
+			  dd->start_addr + MAX_KERNEL_SIZE, all_archs);
 
+	if (arch_in_array(dd->arch, x86_biarch)) {
 		/* Xen pv kernels are loaded low */
 		addr = 0x2000;
 		if (dd->flags & DIF_XEN &&
 		    looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
 			return 0;
 		}
 
@@ -289,6 +289,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		if (looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
 			return 0;
 		}
 
@@ -297,6 +298,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		if (looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
 			return 0;
 		}
 
@@ -305,6 +307,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		if (looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
 			return 0;
 		}
 	}
@@ -315,6 +318,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		if (looks_like_kcode_s390(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, zarch)) {
 			dd->start_addr = addr;
+			dd->flags |= DIF_START_FOUND;
 			return 0;
 		}
 	}

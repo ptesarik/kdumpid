@@ -177,7 +177,6 @@ main(int argc, char **argv)
 	/* Initialize dd */
 	memset(&dd, 0, sizeof dd);
 	dd.last_pfn = -1;
-	dd.start_addr = INVALID_ADDR;
 
 	while ( (c = getopt_long(argc, argv, SHORTOPTS, opts, &opt)) != -1 )
 		switch(c) {
