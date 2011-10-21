@@ -213,7 +213,22 @@ struct dump_header_v8 {
 	/* the utsname (uname) information */
 	struct new_utsname   dh_utsname;
 
-/* Other fields follow... */
+	/* the address of current task */
+	uint64_t             dh_current_task;
+
+	/* what type of compression we're using in this dump (if any) */
+	uint32_t             dh_dump_compress;
+
+	/* any additional flags */
+	uint32_t             dh_dump_flags;
+
+	/* any additional flags */
+	uint32_t             dh_dump_device;
+
+/* following fields only in LKCDv9+ */
+
+	/* size of dump buffer */
+	uint64_t             dh_dump_buffer_size;
 } __attribute__((packed));
 
 static inline long
