@@ -79,7 +79,8 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 	int count;
 
 	do {
-		count = print_insn_i386(info->buffer_vma + pc, info);
+		priv->iptr = priv->insn;
+		count = print_insn_s390(info->buffer_vma + pc, info);
 		if (count < 0)
 			break;
 		pc += count;
