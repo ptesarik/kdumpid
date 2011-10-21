@@ -686,7 +686,7 @@ handle_common(struct dump_desc *dd)
 		free(hdr);
 	}
 
-	if (!(dd->flags & DIF_FORCE) && dd->ver[0])
+	if (!need_explore(dd))
 		return 0;
 
 	set_page_size(dd);

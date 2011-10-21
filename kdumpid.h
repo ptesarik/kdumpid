@@ -117,6 +117,7 @@ const char *arch_name(enum arch arch);
 enum arch get_machine_arch(const char *machine);
 
 int get_version_from_banner(struct dump_desc *dd);
+int need_explore(struct dump_desc *dd);
 
 int read_page(struct dump_desc *dd, unsigned long pfn);
 size_t dump_cpin(struct dump_desc *dd, void *buf, uint64_t paddr, size_t len);

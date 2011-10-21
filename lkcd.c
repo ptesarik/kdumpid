@@ -593,11 +593,8 @@ handle_common(struct dump_desc *dd)
 
 	if (res)
 		return res;
-	if (dd->machine[0]) {
-		dd->arch = get_machine_arch(dd->machine);
-		if (dd->ver[0])
-			return 0;
-	}
+	if (!need_explore(dd))
+		return 0;
 
 	max_idx1 = pfn_idx1(lkcdp.max_pfn - 1) + 1;
 	lkcdp.pfn_level1 = calloc(max_idx1, sizeof(struct pfn_level2*));

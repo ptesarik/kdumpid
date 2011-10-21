@@ -151,6 +151,17 @@ get_version_from_banner(struct dump_desc *dd)
 	return 0;
 }
 
+int
+need_explore(struct dump_desc *dd)
+{
+	if (dd->machine[0]) {
+		dd->arch = get_machine_arch(dd->machine);
+		if (dd->ver[0])
+			return 0;
+	}
+	return 1;
+}
+
 /* utsname strings are 65 characters long.
  * Final NUL may be missing (i.e. corrupted dump data)
  */

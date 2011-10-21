@@ -258,7 +258,12 @@ handle_common(struct dump_desc *dd)
 	} else if (uts_looks_sane(&dh64->utsname)) {
 		copy_uts_string(dd->machine, dh64->utsname.machine);
 		copy_uts_string(dd->ver, dh64->utsname.release);
-	} else if ( (dd->endian = header_looks_sane_32(dh32)) ) {
+	}
+
+	if (!need_explore(dd))
+		return 0;
+
+	if ( (dd->endian = header_looks_sane_32(dh32)) ) {
 		dd->page_size = dump32toh(dd, dh32->block_size);
 		if (read_bitmap(dd,
 				dump32toh(dd, dh32->sub_hdr_size),
