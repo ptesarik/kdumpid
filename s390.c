@@ -29,7 +29,6 @@
 
 struct disas_state {
 	unsigned long flags;
-	int depth;
 };
 
 #define SAM64_SEEN	1
