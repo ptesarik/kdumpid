@@ -241,6 +241,9 @@ main(int argc, char **argv)
 	       dd.flags & DIF_XEN ? ", Xen" : "");
 	printf("Arch: %s\n", arch_name(dd.arch));
 	printf("Version: %s\n", dd.ver);
+	if ( !(dd.flags & DIF_VERBOSE) )
+		return 0;
+
 	if (*dd.machine)
 		printf("Machine: %s\n", dd.machine);
 	if (*dd.banner)
