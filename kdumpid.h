@@ -128,6 +128,9 @@ uint64_t dump_search_range(struct dump_desc *dd,
 
 int explore_raw_data(struct dump_desc *dd);
 
+int uncompress_rle(unsigned char *dst, size_t *pdstlen,
+		   const unsigned char *src, size_t srclen);
+
 /* Inline utility functions */
 
 static inline unsigned

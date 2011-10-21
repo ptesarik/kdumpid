@@ -455,13 +455,23 @@ lkcd_read_page(struct dump_desc *dd, unsigned long pfn)
 	if (pread(dd->fd, buf, dp.dp_size, off) != dp.dp_size)
 		return -1;
 
-	if (type == DUMP_COMPRESSED) {
+	if (type == DUMP_RAW)
+		return 0;
+
+	if (lkcdp->compression == DUMP_COMPRESS_RLE) {
 		uLongf retlen = dd->page_size;
 		int ret = uncompress(dd->page, &retlen,
 				     buf, dp.dp_size);
 		if ((ret != Z_OK) || (retlen != dd->page_size))
 			return -1;
-	}
+	} else if (lkcdp->compression = DUMP_COMPRESS_GZIP) {
+		size_t retlen = dd->page_size;
+		int ret = uncompress_rle(dd->page, &retlen,
+					 buf, dp.dp_size);
+		if (ret)
+			return -1;
+	} else
+		return -1;
 
 	return 0;
 }
