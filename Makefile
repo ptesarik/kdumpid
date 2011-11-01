@@ -27,7 +27,7 @@ kdumpid: $(OBJS)
 	$(call cmd,link)
 
 install:
-	$(INSTALL) -D ./kdumpid $(DESTDIR)$(BINDIR)/hed
+	$(INSTALL) -D ./kdumpid $(DESTDIR)$(BINDIR)/kdumpid
 
 clean:
 	rm -f $(OBJS) kdumpid
