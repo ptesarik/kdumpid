@@ -2,8 +2,8 @@
 #define __KDUMPID_H
 
 #include <stdint.h>
-#include <endian.h>
 #include <unistd.h>
+#include "endian.h"
 
 #define VER_MAJOR	0
 #define VER_MINOR	9
