@@ -62,4 +62,6 @@ package: dist
 	$(COMPRESS) $(PKGNAME)
 	rm -rf $(PKGDIR)
 
+.PHONY: all install clean dist package
+
 -include Makefile.lib
