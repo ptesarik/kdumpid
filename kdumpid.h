@@ -5,9 +5,6 @@
 #include <unistd.h>
 #include "endian.h"
 
-#define VER_MAJOR	0
-#define VER_MINOR	9
-
 /* This should cover all possibilities:
  * - no supported architecture has less than 4K pages.
  * - PowerPC can have up to 256K large pages.
