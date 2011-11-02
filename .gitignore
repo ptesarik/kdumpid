@@ -38,3 +38,6 @@ ncscope.*
 
 # binaries
 kdumpid
+
+# distributable tarballs
+kdumpid-*.tar.*
