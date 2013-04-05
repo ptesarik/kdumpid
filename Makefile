@@ -6,6 +6,9 @@ endif
 ifndef BINDIR
 BINDIR=$(PREFIX)/bin
 endif
+ifndef MANDIR
+MANDIR=$(PREFIX)/man
+endif
 
 CUSTOM_CFLAGS=
 LIBS += -lz -lopcodes -lbfd -liberty -ldl
@@ -47,6 +50,7 @@ kdumpid: $(OBJS)
 
 install:
 	$(INSTALL) -D ./kdumpid $(DESTDIR)$(BINDIR)/kdumpid
+	$(INSTALL) -m 0644 -D ./kdumpid.1 $(DESTDIR)$(MANDIR)/man1/kdumpid.1
 
 clean:
 	rm -f $(OBJS) kdumpid
