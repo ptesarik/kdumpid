@@ -349,8 +349,8 @@ static int
 init_elf32(struct dump_desc *dd, Elf32_Ehdr *ehdr)
 {
 	struct elfdump_priv *edp = dd->priv;
-	Elf32_Phdr *prog;
-	Elf32_Shdr *sect;
+	Elf32_Phdr prog;
+	Elf32_Shdr sect;
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
@@ -361,27 +361,27 @@ init_elf32(struct dump_desc *dd, Elf32_Ehdr *ehdr)
 	if (init_sections(edp, dump16toh(dd, ehdr->e_shnum)))
 		goto fail;
 
-	i = 0;
-	prog = (Elf32_Phdr*)((char*)ehdr + dump32toh(dd, ehdr->e_phoff));
-	while (i < dump16toh(dd, ehdr->e_phnum)) {
+	if (lseek(dd->fd, dump32toh(dd, ehdr->e_phoff), SEEK_SET) < 0)
+		goto fail;
+	for (i = 0; i < dump16toh(dd, ehdr->e_phnum); ++i) {
+		if (read(dd->fd, &prog, sizeof prog) != sizeof prog)
+			goto fail;
 		store_phdr(edp,
-			   dump32toh(dd, prog->p_type),
-			   dump32toh(dd, prog->p_offset),
-			   dump32toh(dd, prog->p_paddr),
-			   dump32toh(dd, prog->p_filesz));
-		++prog;
-		++i;
+			   dump32toh(dd, prog.p_type),
+			   dump32toh(dd, prog.p_offset),
+			   dump32toh(dd, prog.p_paddr),
+			   dump32toh(dd, prog.p_filesz));
 	}
 
-	i = 0;
-	sect = (Elf32_Shdr*)((char*)ehdr + dump32toh(dd, ehdr->e_shoff));
-	while (i < dump16toh(dd, ehdr->e_shnum)) {
+	if (lseek(dd->fd, dump32toh(dd, ehdr->e_shoff), SEEK_SET) < 0)
+		goto fail;
+	for (i = 0; i < dump16toh(dd, ehdr->e_shnum); ++i) {
+		if (read(dd->fd, &sect, sizeof sect) != sizeof sect)
+			goto fail;
 		store_sect(edp,
-			   dump32toh(dd, sect->sh_offset),
-			   dump32toh(dd, sect->sh_size),
-			   dump32toh(dd, sect->sh_name));
-		++sect;
-		++i;
+			   dump32toh(dd, sect.sh_offset),
+			   dump32toh(dd, sect.sh_size),
+			   dump32toh(dd, sect.sh_name));
 	}
 
 	if (init_strtab(dd, dump16toh(dd, ehdr->e_shstrndx)))
@@ -398,8 +398,8 @@ static int
 init_elf64(struct dump_desc *dd, Elf64_Ehdr *ehdr)
 {
 	struct elfdump_priv *edp = dd->priv;
-	Elf64_Phdr *prog;
-	Elf64_Shdr *sect;
+	Elf64_Phdr prog;
+	Elf64_Shdr sect;
 	int i;
 
 	dd->arch = mach2arch(dump16toh(dd, ehdr->e_machine));
@@ -410,27 +410,27 @@ init_elf64(struct dump_desc *dd, Elf64_Ehdr *ehdr)
 	if (init_sections(edp, dump16toh(dd, ehdr->e_shnum)))
 		goto fail;
 
-	i = 0;
-	prog = (Elf64_Phdr*)((char*)ehdr + dump64toh(dd, ehdr->e_phoff));
-	while (i < dump16toh(dd, ehdr->e_phnum)) {
+	if (lseek(dd->fd, dump64toh(dd, ehdr->e_phoff), SEEK_SET) < 0)
+		goto fail;
+	for (i = 0; i < dump16toh(dd, ehdr->e_phnum); ++i) {
+		if (read(dd->fd, &prog, sizeof prog) != sizeof prog)
+			goto fail;
 		store_phdr(edp,
-			   dump32toh(dd, prog->p_type),
-			   dump64toh(dd, prog->p_offset),
-			   dump64toh(dd, prog->p_paddr),
-			   dump64toh(dd, prog->p_filesz));
-		++prog;
-		++i;
+			   dump32toh(dd, prog.p_type),
+			   dump64toh(dd, prog.p_offset),
+			   dump64toh(dd, prog.p_paddr),
+			   dump64toh(dd, prog.p_filesz));
 	}
 
-	i = 0;
-	sect = (Elf64_Shdr*)((char*)ehdr + dump64toh(dd, ehdr->e_shoff));
-	while (i < dump16toh(dd, ehdr->e_shnum)) {
+	if (lseek(dd->fd, dump32toh(dd, ehdr->e_shoff), SEEK_SET) < 0)
+		goto fail;
+	for (i = 0; i < dump16toh(dd, ehdr->e_shnum); ++i) {
+		if (read(dd->fd, &sect, sizeof sect) != sizeof sect)
+			goto fail;
 		store_sect(edp,
-			   dump64toh(dd, sect->sh_offset),
-			   dump64toh(dd, sect->sh_size),
-			   dump32toh(dd, sect->sh_name));
-		++sect;
-		++i;
+			   dump64toh(dd, sect.sh_offset),
+			   dump64toh(dd, sect.sh_size),
+			   dump32toh(dd, sect.sh_name));
 	}
 
 	if (init_strtab(dd, dump16toh(dd, ehdr->e_shstrndx)))
