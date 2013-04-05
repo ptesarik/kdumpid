@@ -31,6 +31,7 @@ compute_sfx(ssize_t *sfx, const unsigned char *s, ssize_t len)
 	ssize_t f, g, i;
 
 	sfx[len - 1] = len;
+	f = 0;			/* bogus assignment to silence a warning */
 	g = len - 1;
 	for (i = len - 2; i >= 0; --i) {
 		if (i > g && sfx[i + len - 1 - f] < i - g)
