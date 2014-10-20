@@ -5,6 +5,10 @@ To compile this package, you'll need the following:
   the distro packaged as binutils-devel or similar.
 * [zlib](http://www.zlib.net/). You can usually find it in a zlib-devel
   package.
+* [lzo](http://www.oberhumer.com/opensource/lzo/). Often found in a
+  lzo-devel package.
+* [snappy](https://code.google.com/p/snappy/). Often found in a snappy-devel
+   package.
 * [GNU C Library](http://www.gnu.org/software/libc/libc.html). Almost
   any version will do. Other C libraries may also work, but since there
   is no standard interface for byte-order macros, this may need some porting.

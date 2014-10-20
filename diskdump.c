@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <zlib.h>
+#include <lzo/lzo1x.h>
+#include <snappy-c.h>
 
 #include "kdumpid.h"
 
@@ -86,7 +88,16 @@ struct disk_dump_priv {
 };
 
 /* flags */
-#define DUMP_DH_COMPRESSED	0x1	/* page is compressed */
+#define DUMP_DH_COMPRESSED_ZLIB	0x1	/* page is compressed with zlib */
+#define DUMP_DH_COMPRESSED_LZO	0x2	/* page is compressed with lzo */
+#define DUMP_DH_COMPRESSED_SNAPPY 0x4	/* page is compressed with snappy */
+
+/* Any compression flag */
+#define DUMP_DH_COMPRESSED	( 0	\
+	| DUMP_DH_COMPRESSED_ZLIB	\
+	| DUMP_DH_COMPRESSED_LZO	\
+	| DUMP_DH_COMPRESSED_SNAPPY	\
+		)
 
 static inline int
 page_is_dumpable(struct dump_desc *dd, unsigned int nr)
@@ -146,11 +157,25 @@ diskdump_read_page(struct dump_desc *dd, unsigned long pfn)
 	if (pread(dd->fd, buf, pd.size, pd.offset) != pd.size)
 		return -1;
 
-	if (pd.flags & DUMP_DH_COMPRESSED) {
+	if (pd.flags & DUMP_DH_COMPRESSED_ZLIB) {
 		uLongf retlen = dd->page_size;
 		int ret = uncompress(dd->page, &retlen,
 				     buf, pd.size);
 		if ((ret != Z_OK) || (retlen != dd->page_size))
+			return -1;
+	} else if (pd.flags & DUMP_DH_COMPRESSED_LZO) {
+		lzo_uint retlen = dd->page_size;
+		int ret = lzo1x_decompress_safe((lzo_bytep)buf, pd.size,
+						(lzo_bytep)dd->page, &retlen,
+						LZO1X_MEM_DECOMPRESS);
+		if ((ret != LZO_E_OK) || (retlen != dd->page_size))
+			return -1;
+	} else if (pd.flags & DUMP_DH_COMPRESSED_SNAPPY) {
+		size_t retlen = dd->page_size;
+		snappy_status ret;
+		ret = snappy_uncompress((char *)buf, pd.size,
+					(char *)dd->page, &retlen);
+		if ((ret != SNAPPY_OK) || (retlen != dd->page_size))
 			return -1;
 	}
 

@@ -11,7 +11,7 @@ MANDIR=$(PREFIX)/man
 endif
 
 CUSTOM_CFLAGS=
-LIBS += -lz -lopcodes -lbfd -liberty -ldl
+LIBS += -lz -llzo2 -lsnappy -lopcodes -lbfd -liberty -ldl
 
 LD=ld
 
