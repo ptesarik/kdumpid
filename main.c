@@ -135,6 +135,13 @@ main(int argc, char **argv)
 	       kdump_is_xen(dd.ctx) ? ", Xen" : "");
 	printf("Arch: %s\n", dd.arch);
 	printf("Version: %s\n", dd.ver);
+	if (kdump_is_xen(dd.ctx)) {
+		kdump_xen_version_t ver;
+		kdump_xen_version(dd.ctx, &ver);
+		printf("Xen: %ld.%ld%s\n",
+		       ver.major, ver.minor, ver.extra ?: "");
+	}
+
 	if (dd.flags & DIF_VERBOSE)
 		print_verbose(&dd);
 
