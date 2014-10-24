@@ -123,6 +123,7 @@ main(int argc, char **argv)
 	dd.page_size = kdump_pagesize(dd.ctx);
 	strcpy(dd.ver, kdump_release(dd.ctx));
 	strcpy(dd.machine, kdump_machine(dd.ctx));
+	dd.arch = kdump_arch_name(dd.ctx);
 
 	if (need_explore(&dd))
 		explore_raw_data(&dd);
@@ -132,7 +133,7 @@ main(int argc, char **argv)
 
 	printf("Format: %s%s\n", kdump_format(dd.ctx),
 	       kdump_is_xen(dd.ctx) ? ", Xen" : "");
-	printf("Arch: %s\n", kdump_arch_name(dd.ctx));
+	printf("Arch: %s\n", dd.arch);
 	printf("Version: %s\n", dd.ver);
 	if (dd.flags & DIF_VERBOSE)
 		print_verbose(&dd);

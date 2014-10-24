@@ -105,7 +105,7 @@ get_version_from_banner(struct dump_desc *dd)
 int
 need_explore(struct dump_desc *dd)
 {
-	if (dd->machine[0])
+	if (!dd->arch && dd->machine[0])
 		dd->arch = get_machine_arch(dd->machine);
 
 	if (!(dd->flags & DIF_VERBOSE) && dd->arch != NULL && dd->ver[0])
