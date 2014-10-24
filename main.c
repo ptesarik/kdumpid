@@ -162,6 +162,29 @@ help(FILE *out, const char *progname)
 
 #define SHORTOPTS	"fhv"
 
+static void
+print_verbose(struct dump_desc *dd)
+{
+	if (dd->machine)
+		printf("Machine: %s\n", dd->machine);
+	if (dd->banner)
+		printf("Banner: %s\n", dd->banner);
+
+	if (dd->cfg) {
+		char *local = strstr(dd->cfg, "CONFIG_LOCALVERSION=");
+		if (local) {
+			char c, *end = strchr(local, '\n');
+			if (end) {
+				c = *end;
+				*end = 0;
+			}
+			printf("Cfg release: %s\n", local + 20);
+			if (end)
+				*end = c;
+		}
+	}
+}
+
 int
 main(int argc, char **argv)
 {
@@ -241,27 +264,8 @@ main(int argc, char **argv)
 	       dd.flags & DIF_XEN ? ", Xen" : "");
 	printf("Arch: %s\n", arch_name(dd.arch));
 	printf("Version: %s\n", dd.ver);
-	if ( !(dd.flags & DIF_VERBOSE) )
-		return 0;
-
-	if (*dd.machine)
-		printf("Machine: %s\n", dd.machine);
-	if (*dd.banner)
-		printf("Banner: %s\n", dd.banner);
-
-	if (dd.cfg) {
-		char *local = strstr(dd.cfg, "CONFIG_LOCALVERSION=");
-		if (local) {
-			char c, *end = strchr(local, '\n');
-			if (end) {
-				c = *end;
-				*end = 0;
-			}
-			printf("Cfg release: %s\n", local + 20);
-			if (end)
-				*end = c;
-		}
-	}
+	if (dd.flags & DIF_VERBOSE)
+		print_verbose(&dd);
 
 	return 0;
 }
