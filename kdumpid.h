@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <unistd.h>
+#include <kdumpfile.h>
+
 #include "endian.h"
 
 /* This should cover all possibilities:
@@ -35,6 +37,7 @@ struct dump_desc {
 	const char *name;	/* file name */
 	long flags;		/* see DIF_XXX below */
 	int fd;			/* dump file descriptor */
+	kdump_ctx *ctx;		/* kdumpfile context */
 
 	void *buffer;		/* temporary buffer */
 	void *page;		/* page data buffer */

@@ -184,31 +184,19 @@ uts_looks_sane(struct new_utsname *uts)
 
 int read_page(struct dump_desc *dd, unsigned long pfn)
 {
-	if (pfn == dd->last_pfn)
-		return 0;
-	dd->last_pfn = pfn;
-	return dd->read_page(dd, pfn);
+	size_t rd = dd->page_size;
+	return kdump_readp(dd->ctx, pfn * dd->page_size, dd->page, &rd,
+			   KDUMP_PHYSADDR);
 }
 
 size_t
 dump_cpin(struct dump_desc *dd, void *buf, uint64_t paddr, size_t len)
 {
-	while (len) {
-		size_t off, remain;
-
-		if (read_page(dd, paddr / dd->page_size))
-			break;
-
-		off = paddr % dd->page_size;
-		remain = dd->page_size - off;
-		if (remain > len)
-			remain = len;
-		memcpy(buf, dd->page + off, remain);
-		paddr += remain;
-		buf += remain;
-		len -= remain;
-	}
-	return len;
+	ssize_t rd;
+	rd = kdump_read(dd->ctx, paddr, buf, len, KDUMP_PHYSADDR);
+	if (rd <= 0)
+		return len;
+	return len - rd;
 }
 
 int

@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -196,6 +197,7 @@ main(int argc, char **argv)
 		{0, 0, 0, 0}
 	};
 	struct dump_desc dd;
+	kdump_status status;
 	int c, opt;
 	int i;
 
@@ -234,38 +236,33 @@ main(int argc, char **argv)
 		perror(dd.name);
 		return 2;
 	}
-	if (paged_cpin(dd.fd, dd.buffer, MAX_PAGE_SIZE)) {
-		perror("Read header");
-		return 2;
+	status = kdump_fdopen(&dd.ctx, dd.fd);
+	if (status != kdump_ok) {
+		fprintf(stderr, "Cannot initialize %s: %s\n", dd.name,
+			status == kdump_syserr
+			? strerror(errno)
+			: "libkdumpfile failure");
 	}
 
-	for (i = 0; i < NFORMATS; ++i) {
-		if (!memcmp(dd.buffer,
-			    formats[i].magic, formats[i].magiclen)) {
-			if (!formats[i].handler(&dd))
-				break;
-		}
-	}
+	dd.page_size = kdump_pagesize(dd.ctx);
 
-	/* Intentionally ignore errors on close */
-	close(dd.fd);
+	if (need_explore(&dd))
+		explore_raw_data(&dd);
 
-	if (i == NFORMATS) {
-		fputs("Not a supported dump file format\n", stderr);
-		return 1;
-	}
-
-	if (dd.arch == ARCH_UNKNOWN)
-		dd.arch = get_machine_arch(dd.machine);
-	if (!*dd.ver && *dd.banner)
+	strcpy(dd.ver, kdump_release(dd.ctx));
+	if (!*dd.ver)
 		get_version_from_banner(&dd);
 
-	printf("Format: %s%s\n", dd.format,
-	       dd.flags & DIF_XEN ? ", Xen" : "");
-	printf("Arch: %s\n", arch_name(dd.arch));
+	printf("Format: %s%s\n", kdump_format(dd.ctx),
+	       kdump_is_xen(dd.ctx) ? ", Xen" : "");
+	printf("Arch: %s\n", kdump_arch_name(dd.ctx));
 	printf("Version: %s\n", dd.ver);
 	if (dd.flags & DIF_VERBOSE)
 		print_verbose(&dd);
+
+	/* Intentionally ignore errors on close */
+	kdump_free(dd.ctx);
+	close(dd.fd);
 
 	return 0;
 }

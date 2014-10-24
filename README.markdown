@@ -9,6 +9,8 @@ To compile this package, you'll need the following:
   lzo-devel package.
 * [snappy](https://code.google.com/p/snappy/). Often found in a snappy-devel
    package.
+* [libkdumpfile](https://github.com/ptesarik/libkdumpfile). Under heavy
+  development. Unlikely to be packaged.
 * [GNU C Library](http://www.gnu.org/software/libc/libc.html). Almost
   any version will do. Other C libraries may also work, but since there
   is no standard interface for byte-order macros, this may need some porting.
