@@ -9,19 +9,6 @@
 
 #define INVALID_ADDR	((uint64_t)-1ULL)
 
-enum arch {
-	ARCH_UNKNOWN = 0,
-	ARCH_ALPHA,
-	ARCH_ARM,
-	ARCH_IA64,
-	ARCH_PPC,
-	ARCH_PPC64,
-	ARCH_S390,
-	ARCH_S390X,
-	ARCH_X86,
-	ARCH_X86_64,
-};
-
 struct dump_desc;
 
 struct dump_desc {
@@ -34,7 +21,7 @@ struct dump_desc {
 	size_t page_size;	/* target page size */
 	unsigned long max_pfn;	/* max PFN for read_page */
 
-	enum arch arch;		/* architecture (if known) */
+	const char *arch;	/* architecture (if known) */
 	int endian;		/* __LITTLE_ENDIAN or __BIG_ENDIAN */
 	uint64_t start_addr;	/* kernel start address */
 
@@ -76,8 +63,6 @@ struct new_utsname {
 
 void copy_uts_string(char *dest, const char *src);
 int uts_looks_sane(struct new_utsname *uts);
-
-enum arch get_machine_arch(const char *machine);
 
 int get_version_from_banner(struct dump_desc *dd);
 int need_explore(struct dump_desc *dd);

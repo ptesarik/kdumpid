@@ -134,7 +134,7 @@ looks_like_kcode_s390(struct dump_desc *dd, uint64_t addr)
 	ret |= disas_at(dd, &info, 0);
 
 	if (ret > 0 && priv.state.flags & SAM64_SEEN)
-		dd->arch = ARCH_S390X;
+		dd->arch = "s390x";
 
 	return ret;
 }

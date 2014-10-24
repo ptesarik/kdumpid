@@ -32,67 +32,57 @@ chomp(char *banner)
 	*p = 0;
 }
 
-enum arch
+static const char*
 get_machine_arch(const char *machine)
 {
-	if (!strcmp(machine, "alpha"))
-		return ARCH_ALPHA;
-	else if (!strcmp(machine, "ia64"))
-		return ARCH_IA64;
-	else if (!strcmp(machine, "ppc"))
-		return ARCH_PPC;
-	else if (!strcmp(machine, "ppc64"))
-		return ARCH_PPC64;
-	else if (!strcmp(machine, "s390"))
-		return ARCH_S390;
-	else if (!strcmp(machine, "s390x"))
-		return ARCH_S390X;
-	else if (!strcmp(machine, "i386") ||
-		 !strcmp(machine, "i586") ||
-		 !strcmp(machine, "i686"))
-		return ARCH_X86;
-	else if (!strcmp(machine, "x86_64"))
-		return ARCH_X86_64;
+	if (!strcmp(machine, "i386") ||
+	    !strcmp(machine, "i586") ||
+	    !strcmp(machine, "i686"))
+		return "i386";
+	else if (!strcmp(machine, "arm64"))
+		 return "aarch64";
 	else if (!strncmp(machine, "arm", 3))
-		return ARCH_ARM;
-	else
-		return ARCH_UNKNOWN;
+		return "arm";
+
+	return machine;
 }
 
-static enum arch
+static const char*
 cfg2arch(const char *cfg)
 {
 	if (strstr(cfg, "CONFIG_X86_64=y"))
-		return ARCH_X86_64;
+		return "x86_64";
 	if (strstr(cfg, "CONFIG_X86_32=y"))
-		return ARCH_X86;
+		return "i386";
 	if (strstr(cfg, "CONFIG_PPC64=y"))
-		return ARCH_PPC64;
+		return "ppc64";
 	if (strstr(cfg, "CONFIG_PPC32=y"))
-		return ARCH_PPC;
+		return "ppc";
 	if (strstr(cfg, "CONFIG_IA64=y"))
-		return ARCH_IA64;
+		return "ia64";
 	if (strstr(cfg, "CONFIG_S390=y"))
 		return strstr(cfg, "CONFIG_64BIT=y")
-			? ARCH_S390X
-			: ARCH_S390;
+			? "s390x"
+			: "s390";
 	if (strstr(cfg, "CONFIG_ALPHA=y"))
-		return ARCH_ALPHA;
+		return "alpha";
 	if (strstr(cfg, "CONFIG_ARM=y"))
-		return ARCH_ARM;
-	return ARCH_UNKNOWN;
+		return "arm";
+	return NULL;
 }
 
 static int
-arch_in_array(enum arch arch, const enum arch *const arr)
+arch_in_array(const char *arch, const char *const *arr)
 {
-	const enum arch *p = arr;
+	const char *const *p = arr;
+	if (arch == NULL)
+		return 1;
 	while (*p) {
-		if (arch == *p)
+		if (!strcmp(arch, *p))
 			return 1;
 		++p;
 	}
-	return arch == ARCH_UNKNOWN;
+	return 0;
 }
 
 int
@@ -118,8 +108,7 @@ need_explore(struct dump_desc *dd)
 	if (dd->machine[0])
 		dd->arch = get_machine_arch(dd->machine);
 
-	if (!(dd->flags & DIF_VERBOSE) &&
-	    dd->arch != ARCH_UNKNOWN && dd->ver[0])
+	if (!(dd->flags & DIF_VERBOSE) && dd->arch != NULL && dd->ver[0])
 		return 0;
 	return 1;
 }
@@ -206,26 +195,26 @@ uncompress_config(struct dump_desc *dd, void *zcfg, size_t zsize)
 }
 
 typedef int (*explore_fn)(struct dump_desc *, uint64_t, uint64_t,
-			  const enum arch *);
+			  const char *const *);
 
 static int
 explore_kernel(struct dump_desc *dd, explore_fn fn)
 {
-	static const enum arch all_archs[] = {
-		ARCH_ALPHA, ARCH_ARM, ARCH_IA64,
-		ARCH_PPC, ARCH_PPC64,
-		ARCH_S390, ARCH_S390X,
-		ARCH_X86, ARCH_X86_64,
-		0
+	static const char *const all_archs[] = {
+		"alpha", "arm", "ia64",
+		"ppc", "ppc64",
+		"s390", "s390x",
+		"x86", "x86_64",
+		NULL
 	};
-	static const enum arch x86_biarch[] = {
-		ARCH_X86, ARCH_X86_64, 0
+	static const char *const x86_biarch[] = {
+		"x86", "x86_64", NULL
 	};
-	static const enum arch zarch[] = {
-		ARCH_S390, ARCH_S390X, 0
+	static const char *const zarch[] = {
+		"s390", "s390x", NULL
 	};
-	static const enum arch ppc[] = { ARCH_PPC, 0 };
-	static const enum arch ppc64[] = { ARCH_PPC64, 0 };
+	static const char *const ppc[] = { "ppc", NULL };
+	static const char *const ppc64[] = { "ppc64", NULL };
 
 	uint64_t addr;
 
@@ -313,7 +302,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 
 static int
 explore_banner(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
-	       const enum arch *expected_archs)
+	       const char *const *expected_archs)
 {
 	static const unsigned char banhdr[] = "Linux version ";
 
@@ -337,7 +326,7 @@ explore_banner(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
 
 static int
 explore_utsname(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
-		const enum arch *const expected_archs)
+		const char *const *expected_archs)
 {
 	static const unsigned char sysname[65] = "Linux";
 
@@ -345,7 +334,7 @@ explore_utsname(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
 					 sysname, sizeof sysname)) != INVALID_ADDR) {
 		struct new_utsname uts; 
 		size_t len;
-		enum arch arch;
+		const char *arch;
 
 		len = dump_cpin(dd, &uts, addr, sizeof uts);
 		addr += sizeof sysname;
@@ -356,8 +345,7 @@ explore_utsname(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
 			continue;
 
 		arch = get_machine_arch(uts.machine);
-		if (arch != ARCH_UNKNOWN &&
-		    arch_in_array(arch, expected_archs)) {
+		if (arch && arch_in_array(arch, expected_archs)) {
 			dd->arch = arch;
 			copy_uts_string(dd->machine, uts.machine);
 			copy_uts_string(dd->ver, uts.release);
@@ -409,12 +397,11 @@ search_ikcfg(struct dump_desc *dd, uint64_t startaddr, uint64_t endaddr)
 
 static int
 explore_ikcfg(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
-	      const enum arch *const expected_archs)
+	      const char *const *expected_archs)
 {
 	while ((addr = search_ikcfg(dd, addr, endaddr)) != INVALID_ADDR) {
-		enum arch arch = cfg2arch(dd->cfg);
-		if (arch != ARCH_UNKNOWN &&
-		    arch_in_array(arch, expected_archs)) {
+		const char *arch = cfg2arch(dd->cfg);
+		if (arch && arch_in_array(arch, expected_archs)) {
 			dd->arch = arch;
 			return 0;
 		}
