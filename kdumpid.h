@@ -40,7 +40,6 @@ struct dump_desc {
 /* Kdumpid flags */
 #define DIF_VERBOSE	1
 #define DIF_FORCE	2
-#define DIF_XEN		4
 #define DIF_START_FOUND	8
 
 /* Arch-specific helpers */

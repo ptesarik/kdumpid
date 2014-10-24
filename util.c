@@ -228,7 +228,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	if (arch_in_array(dd->arch, x86_biarch)) {
 		/* Xen pv kernels are loaded low */
 		addr = 0x2000;
-		if (dd->flags & DIF_XEN &&
+		if (dd->flags & kdump_is_xen(dd->ctx) &&
 		    looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
