@@ -45,9 +45,12 @@ help(FILE *out, const char *progname)
 static void
 print_verbose(struct dump_desc *dd)
 {
-	if (dd->machine)
-		printf("Machine: %s\n", dd->machine);
-	if (dd->banner)
+	const char *machine = kdump_machine(dd->ctx);
+	if (!machine)
+		machine = dd->machine;
+	if (*machine)
+		printf("Machine: %s\n", machine);
+	if (*dd->banner)
 		printf("Banner: %s\n", dd->banner);
 
 	if (dd->cfg) {
