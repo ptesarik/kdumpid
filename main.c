@@ -121,11 +121,12 @@ main(int argc, char **argv)
 	}
 
 	dd.page_size = kdump_pagesize(dd.ctx);
+	strcpy(dd.ver, kdump_release(dd.ctx));
+	strcpy(dd.machine, kdump_machine(dd.ctx));
 
 	if (need_explore(&dd))
 		explore_raw_data(&dd);
 
-	strcpy(dd.ver, kdump_release(dd.ctx));
 	if (!*dd.ver)
 		get_version_from_banner(&dd);
 
