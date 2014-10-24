@@ -33,8 +33,7 @@ TAR=tar
 endif
 
 HDRS=kdumpid.h endian.h
-SRC=main.c lkcd.c devmem.c diskdump.c elfdump.c util.c search.c \
-	ppc.c ppc64.c s390.c x86.c
+SRC=main.c util.c search.c ppc.c ppc64.c s390.c x86.c
 OBJS=$(addsuffix .o,$(basename $(SRC)))
 
 DIST_EXTRA=Makefile Makefile.lib kdumpid.1

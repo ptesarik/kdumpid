@@ -32,45 +32,6 @@ chomp(char *banner)
 	*p = 0;
 }
 
-const size_t
-arch_ptr_size(enum arch arch)
-{
-	switch (arch) {
-	case ARCH_ALPHA:
-	case ARCH_IA64:
-	case ARCH_PPC64:
-	case ARCH_S390X:
-	case ARCH_X86_64:
-		return 8;	/* 64 bits */
-
-	case ARCH_ARM:
-	case ARCH_PPC:
-	case ARCH_S390:
-	case ARCH_X86:
-	default:
-		return 4;	/* 32 bits */
-	}
-
-}
-
-const char *arch_name(enum arch arch)
-{
-	static const char *const names[] = {
-		[ARCH_ALPHA] = "alpha",
-		[ARCH_ARM] = "arm",
-		[ARCH_IA64] = "ia64",
-		[ARCH_PPC] = "ppc",
-		[ARCH_PPC64] = "ppc64",
-		[ARCH_S390] = "s390",
-		[ARCH_S390X] = "s390x",
-		[ARCH_X86] = "i386",
-		[ARCH_X86_64] = "x86_64",
-	};
-	if (arch < sizeof(names) / sizeof(names[0]))
-		return names[arch];
-	return "(unknown)";
-}
-
 enum arch
 get_machine_arch(const char *machine)
 {
@@ -480,39 +441,4 @@ explore_raw_data(struct dump_desc *dd)
 	free(dd->page);
 
 	return ret;
-}
-
-int
-uncompress_rle(unsigned char *dst, size_t *pdstlen,
-	       const unsigned char *src, size_t srclen)
-{
-	const unsigned char *srcend = src + srclen;
-	size_t remain = *pdstlen;
-
-	while (src < srcend) {
-		unsigned char byte, cnt;
-
-		if (! (byte = *src++)) {
-			if (src >= srcend)
-				return -1;
-			if ( (cnt = *src++) ) {
-				if (remain < cnt)
-					return -1;
-				if (src >= srcend)
-					return -1;
-				memset(dst, *src++, cnt);
-				dst += cnt;
-				remain -= cnt;
-				continue;
-			}
-		}
-
-		if (!remain)
-			return -1;
-		*dst++ = byte;
-		--remain;
-	}
-
-	*pdstlen -= remain;
-	return 0;
 }

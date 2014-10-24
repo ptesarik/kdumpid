@@ -7,13 +7,6 @@
 
 #include "endian.h"
 
-/* This should cover all possibilities:
- * - no supported architecture has less than 4K pages.
- * - PowerPC can have up to 256K large pages.
- */
-#define MIN_PAGE_SIZE	(1UL << 12)
-#define MAX_PAGE_SIZE	(1UL << 18)
-
 #define INVALID_ADDR	((uint64_t)-1ULL)
 
 enum arch {
@@ -31,27 +24,20 @@ enum arch {
 
 struct dump_desc;
 
-typedef int (*readpage_fn)(struct dump_desc *, unsigned long);
-
 struct dump_desc {
 	const char *name;	/* file name */
 	long flags;		/* see DIF_XXX below */
 	int fd;			/* dump file descriptor */
 	kdump_ctx *ctx;		/* kdumpfile context */
 
-	void *buffer;		/* temporary buffer */
 	void *page;		/* page data buffer */
 	size_t page_size;	/* target page size */
-	readpage_fn read_page;	/* method to read dump pages */
 	unsigned long max_pfn;	/* max PFN for read_page */
-	unsigned long last_pfn;	/* last read PFN */
 
 	enum arch arch;		/* architecture (if known) */
 	int endian;		/* __LITTLE_ENDIAN or __BIG_ENDIAN */
-	size_t ptr_size;	/* arch pointer size */
 	uint64_t start_addr;	/* kernel start address */
 
-	char format[32];	/* file format */
 	char machine[66];	/* arch name (utsname machine) */
 	char ver[66];		/* version (utsname release) */
 	char banner[256];	/* Linux banner */
@@ -70,20 +56,6 @@ struct dump_desc {
 #define DIF_XEN		4
 #define DIF_START_FOUND	8
 
-/* LKCD */
-int handle_lkcd_le(struct dump_desc *dd);
-int handle_lkcd_be(struct dump_desc *dd);
-
-/* diskdump/compressed kdump */
-int handle_diskdump(struct dump_desc *dd);
-int handle_kdump(struct dump_desc *dd);
-
-/* ELF dumps */
-int handle_elfdump(struct dump_desc *dd);
-
-/* live sources */
-int handle_devmem(struct dump_desc *dd);
-
 /* Arch-specific helpers */
 int looks_like_kcode_ppc(struct dump_desc *dd, uint64_t addr);
 int looks_like_kcode_ppc64(struct dump_desc *dd, uint64_t addr);
@@ -100,23 +72,11 @@ struct new_utsname {
 	char domainname[65];
 };
 
-/* struct timeval has a different layout on 32-bit and 64-bit */
-struct timeval_32 {
-	int32_t tv_sec;
-	int32_t tv_usec;
-};
-struct timeval_64 {
-	int64_t tv_sec;
-	int64_t tv_usec;
-};
-
 /* utils */
 
 void copy_uts_string(char *dest, const char *src);
 int uts_looks_sane(struct new_utsname *uts);
 
-const size_t arch_ptr_size(enum arch arch);
-const char *arch_name(enum arch arch);
 enum arch get_machine_arch(const char *machine);
 
 int get_version_from_banner(struct dump_desc *dd);
@@ -131,41 +91,5 @@ uint64_t dump_search_range(struct dump_desc *dd,
 			   const unsigned char *needle, size_t len);
 
 int explore_raw_data(struct dump_desc *dd);
-
-int uncompress_rle(unsigned char *dst, size_t *pdstlen,
-		   const unsigned char *src, size_t srclen);
-
-/* Inline utility functions */
-
-static inline unsigned
-bitcount(unsigned x)
-{
-	return (uint32_t)((((x * 0x08040201) >> 3) & 0x11111111) * 0x11111111)
-		>> 28;
-}
-
-static inline uint16_t
-dump16toh(struct dump_desc *dd, uint16_t x)
-{
-	return dd->endian == __BIG_ENDIAN
-		? be16toh(x)
-		: le16toh(x);
-}
-
-static inline uint32_t
-dump32toh(struct dump_desc *dd, uint32_t x)
-{
-	return dd->endian == __BIG_ENDIAN
-		? be32toh(x)
-		: le32toh(x);
-}
-
-static inline uint64_t
-dump64toh(struct dump_desc *dd, uint64_t x)
-{
-	return dd->endian == __BIG_ENDIAN
-		? be64toh(x)
-		: le64toh(x);
-}
 
 #endif	/* __KDUMPID_H */

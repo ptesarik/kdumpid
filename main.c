@@ -26,127 +26,6 @@
 
 #include "kdumpid.h"
 
-typedef int (*handler_t)(struct dump_desc *dd);
-
-struct crash_file {
-	const char *magic;
-	size_t magiclen;
-	handler_t handler;
-};
-
-/* /dev/crash cannot handle reads larger than page size */
-static int
-paged_cpin(int fd, void *buffer, size_t size)
-{
-	long page_size = sysconf(_SC_PAGESIZE);
-	while (size) {
-		size_t chunksize = (size > page_size)
-			? page_size
-			: size;
-		if (read(fd, buffer, chunksize) != chunksize)
-			return size;
-
-		buffer += chunksize;
-		size -= chunksize;
-	}
-	return 0;
-}
-
-static const char magic_elfdump[] =
-	{ '\177', 'E', 'L', 'F' };
-static const char magic_kvm[] =
-	{ 'Q', 'E', 'V', 'M' };
-static const char magic_libvirt[] = 
-	{ 'L', 'i', 'b', 'v' };
-static const char magic_xc_save[] =
-	{ 'L', 'i', 'n', 'u', 'x', 'G', 'u', 'e',
-	  's', 't', 'R', 'e', 'c', 'o', 'r', 'd' };
-static const char magic_xc_core[] =
-	{ 0xed, 0xeb, 0x0f, 0xf0 };
-static const char magic_xc_core_hvm[] =
-	{ 0xee, 0xeb, 0x0f, 0xf0 };
-static const char magic_diskdump[] =
-	{ 'D', 'I', 'S', 'K', 'D', 'U', 'M', 'P' };
-static const char magic_kdump[] =
-	{ 'K', 'D', 'U', 'M', 'P', ' ', ' ', ' ' };
-static const char magic_lkcd_le[] =
-	{ 0xed, 0x23, 0x8f, 0x61, 0x73, 0x01, 0x19, 0xa8 };
-static const char magic_lkcd_be[] =
-	{ 0xa8, 0x19, 0x01, 0x73, 0x61, 0x8f, 0x23, 0xed };
-static const char magic_mclxcd[] =
-	{ 0xdd, 0xcc, 0x8b, 0x9a };
-static const char magic_s390[] =
-	{ 0xa8, 0x19, 0x01, 0x73, 0x61, 0x8f, 0x23, 0xfd };
-static const char magic_devmem[0];
-
-static int
-handle_kvm(struct dump_desc *dd)
-{
-	fputs("KVM dump not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_libvirt(struct dump_desc *dd)
-{
-	fputs("Libvirt dump not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_xc_save(struct dump_desc *dd)
-{
-	fputs("Xen xc_save not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_xc_core(struct dump_desc *dd)
-{
-	fputs("Xen xc_core not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_xc_core_hvm(struct dump_desc *dd)
-{
-	fputs("Xen xc_core HVM not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_mclxcd(struct dump_desc *dd)
-{
-	fputs("MCLXCD dump not yet implemented\n", stderr);
-	return -1;
-}
-
-static int
-handle_s390(struct dump_desc *dd)
-{
-	fputs("S/390 dump not yet implemented\n", stderr);
-	return -1;
-}
-
-#define FORMAT(x)	{ magic_ ## x, sizeof(magic_ ## x), handle_ ## x }
-static struct crash_file formats[] = {
-	FORMAT(elfdump),
-	FORMAT(kvm),
-	FORMAT(libvirt),
-	FORMAT(xc_save),
-	FORMAT(xc_core),
-	FORMAT(xc_core_hvm),
-	FORMAT(diskdump),
-	FORMAT(kdump),
-	FORMAT(lkcd_le),
-	FORMAT(lkcd_be),
-	FORMAT(mclxcd),
-	FORMAT(s390),
-	FORMAT(devmem),
-};
-
-#define NFORMATS	(sizeof formats / sizeof formats[0])
-
 static void
 version(FILE *out, const char *progname)
 {
@@ -203,7 +82,6 @@ main(int argc, char **argv)
 
 	/* Initialize dd */
 	memset(&dd, 0, sizeof dd);
-	dd.last_pfn = -1;
 
 	while ( (c = getopt_long(argc, argv, SHORTOPTS, opts, &opt)) != -1 )
 		switch(c) {
@@ -226,11 +104,6 @@ main(int argc, char **argv)
 		return 1;
 	}
 	dd.name = argv[optind];
-
-	if ((dd.buffer = calloc(1, MAX_PAGE_SIZE)) == NULL) {
-		perror("Buffer alloc");
-		return 2;
-	}
 
 	if ((dd.fd = open(dd.name, O_RDONLY)) < 0) {
 		perror(dd.name);
