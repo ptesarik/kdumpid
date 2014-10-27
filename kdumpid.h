@@ -60,9 +60,6 @@ struct new_utsname {
 
 /* utils */
 
-void copy_uts_string(char *dest, const char *src);
-int uts_looks_sane(struct new_utsname *uts);
-
 int get_version_from_banner(struct dump_desc *dd);
 int need_explore(struct dump_desc *dd);
 

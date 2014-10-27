@@ -116,7 +116,7 @@ need_explore(struct dump_desc *dd)
 /* utsname strings are 65 characters long.
  * Final NUL may be missing (i.e. corrupted dump data)
  */
-void
+static void
 copy_uts_string(char *dest, const char *src)
 {
 	if (!*dest) {
@@ -125,7 +125,7 @@ copy_uts_string(char *dest, const char *src)
 	}
 }
 
-int
+static int
 uts_looks_sane(struct new_utsname *uts)
 {
 	return uts->sysname[0] && uts->nodename[0] && uts->release[0] &&
