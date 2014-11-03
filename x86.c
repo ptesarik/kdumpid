@@ -258,7 +258,8 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	/* Try i386 code first */
 	info.mach          = bfd_mach_i386_i386;
 	disassemble_init_for_target(&info);
-	if (strcmp(dd->arch, "x86_64") && disas_at(dd, &info, 0) > 0) {
+	if ((!dd->arch || strcmp(dd->arch, "x86_64")) &&
+	    disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
 	}
@@ -267,7 +268,8 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	memset(priv, 0, sizeof(struct disas_priv) + dd->page_size / 8);
 	info.mach          = bfd_mach_x86_64;
 	disassemble_init_for_target(&info);
-	if (strcmp(dd->arch, "i386") && disas_at(dd, &info, 0) > 0) {
+	if ((!dd->arch || strcmp(dd->arch, "i386")) &&
+	    disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
 	}
