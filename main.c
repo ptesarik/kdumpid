@@ -118,6 +118,8 @@ main(int argc, char **argv)
 			status == kdump_syserr
 			? strerror(errno)
 			: "libkdumpfile failure");
+		close(dd.fd);
+		return 2;
 	}
 
 	dd.page_size = kdump_pagesize(dd.ctx);
