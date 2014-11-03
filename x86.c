@@ -171,7 +171,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			int cont = strncmp(insn, "jmp", 3);
 
 			a -= info->buffer_vma;
-			if (a < info->buffer_vma + dd->page_size) {
+			if (a < dd->page_size) {
 				priv->initstate = state;
 				++priv->initstate.depth;
 				if (disas_at(dd, info, a) > 0)
