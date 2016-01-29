@@ -123,8 +123,8 @@ main(int argc, char **argv)
 	}
 
 	dd.page_size = kdump_pagesize(dd.ctx);
-	strcpy(dd.ver, kdump_release(dd.ctx));
-	strcpy(dd.machine, kdump_machine(dd.ctx));
+	strcpy(dd.ver, kdump_release(dd.ctx) ?: "");
+	strcpy(dd.machine, kdump_machine(dd.ctx) ?: "");
 	dd.arch = kdump_arch_name(dd.ctx);
 
 	if (need_explore(&dd))
