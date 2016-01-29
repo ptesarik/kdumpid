@@ -135,15 +135,24 @@ uts_looks_sane(struct new_utsname *uts)
 int read_page(struct dump_desc *dd, unsigned long pfn)
 {
 	size_t rd = dd->page_size;
+#ifndef KDUMPFILE_VER_MAJOR
 	return kdump_readp(dd->ctx, pfn * dd->page_size, dd->page, &rd,
 			   KDUMP_PHYSADDR);
+#else
+	return kdump_readp(dd->ctx, KDUMP_KPHYSADDR, pfn * dd->page_size,
+			   dd->page, &rd);
+#endif
 }
 
 size_t
 dump_cpin(struct dump_desc *dd, void *buf, uint64_t paddr, size_t len)
 {
 	ssize_t rd;
+#ifndef KDUMPFILE_VER_MAJOR
 	rd = kdump_read(dd->ctx, paddr, buf, len, KDUMP_PHYSADDR);
+#else
+	rd = kdump_read(dd->ctx, KDUMP_KPHYSADDR, paddr, buf, len);
+#endif
 	if (rd <= 0)
 		return len;
 	return len - rd;

@@ -60,6 +60,14 @@ struct new_utsname {
 
 /* utils */
 
+#ifdef KDUMPFILE_VER_MAJOR
+static inline int
+kdump_is_xen(kdump_ctx *ctx)
+{
+	return kdump_xen_type(ctx) != kdump_xen_none;
+}
+#endif
+
 int get_version_from_banner(struct dump_desc *dd);
 int need_explore(struct dump_desc *dd);
 

@@ -26,6 +26,49 @@
 
 #include "kdumpid.h"
 
+/* Compatibility with ancient versions */
+#ifndef KDUMPFILE_VER_MAJOR
+static void
+print_xen_info(kdump_ctx *ctx)
+{
+	if (kdump_is_xen(ctx)) {
+		kdump_xen_version_t ver;
+		kdump_xen_version(ctx, &ver);
+		printf("Xen: %ld.%ld%s\n",
+		       ver.major, ver.minor, ver.extra ?: "");
+	}
+}
+
+#else
+
+static void
+print_xen_info(kdump_ctx *ctx)
+{
+	if (kdump_xen_type(ctx) != kdump_xen_none) {
+		struct kdump_attr attr;
+		kdump_status status;
+
+		fputs("Xen: ", stdout);
+		status = kdump_get_attr(ctx, "xen.version.major", &attr);
+		if (status == kdump_ok)
+			printf("%ld.", attr.val.number);
+		else
+			fputs("?.", stdout);
+
+		status = kdump_get_attr(ctx, "xen.version.minor", &attr);
+		if (status == kdump_ok)
+			printf("%ld", attr.val.number);
+		else
+			fputs("?", stdout);
+
+		status = kdump_get_attr(ctx, "xen.version.extra", &attr);
+		if (status == kdump_ok)
+			puts(attr.val.string);
+	}
+}
+
+#endif
+
 static void
 version(FILE *out, const char *progname)
 {
@@ -137,12 +180,7 @@ main(int argc, char **argv)
 	       kdump_is_xen(dd.ctx) ? ", Xen" : "");
 	printf("Arch: %s\n", dd.arch);
 	printf("Version: %s\n", dd.ver);
-	if (kdump_is_xen(dd.ctx)) {
-		kdump_xen_version_t ver;
-		kdump_xen_version(dd.ctx, &ver);
-		printf("Xen: %ld.%ld%s\n",
-		       ver.major, ver.minor, ver.extra ?: "");
-	}
+	print_xen_info(dd.ctx);
 
 	if (dd.flags & DIF_VERBOSE)
 		print_verbose(&dd);
