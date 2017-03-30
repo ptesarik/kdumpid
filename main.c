@@ -151,6 +151,8 @@ main(int argc, char **argv)
 		return 2;
 	}
 
+	kdump_set_string_attr(dd.ctx, KDUMP_ATTR_OSTYPE, "linux");
+
 	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_PAGE_SIZE,
 				       &dd.page_size);
 	if (status != kdump_ok) {
