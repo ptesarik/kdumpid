@@ -39,7 +39,7 @@ get_machine_arch(const char *machine)
 	if (!strcmp(machine, "i386") ||
 	    !strcmp(machine, "i586") ||
 	    !strcmp(machine, "i686"))
-		return "i386";
+		return "ia32";
 	else if (!strcmp(machine, "arm64"))
 		 return "aarch64";
 	else if (!strncmp(machine, "arm", 3))
