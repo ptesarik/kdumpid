@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <zlib.h>
+#include <libkdumpfile/addrxlat.h>
 
 #include "kdumpid.h"
 
@@ -411,11 +412,43 @@ explore_ikcfg(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
 int
 explore_raw_data(struct dump_desc *dd)
 {
+	addrxlat_sys_t *sys;
+	addrxlat_map_t *map;
 	int ret;
 
 	if ( (dd->page = malloc(dd->page_size)) == NULL) {
 		perror("Cannot allocate page data");
 		return -1;
+	}
+
+	sys = kdump_get_addrxlat_sys(dd->ctx);
+	map = addrxlat_sys_get_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS);
+	if (!map) {
+		addrxlat_range_t range;
+		addrxlat_def_t def;
+		addrxlat_status status;
+
+		range.meth = addrxlat_meth_new();
+		if (!range.meth) {
+			perror("Cannot allocate translation method");
+			return -1;
+		}
+		def.kind = ADDRXLAT_LINEAR;
+		def.target_as = ADDRXLAT_MACHPHYSADDR;
+		def.param.linear.off = 0;
+		status = addrxlat_meth_set_def(range.meth, &def);
+		if (status != addrxlat_ok) {
+			fputs("Cannot set up translation\n", stderr);
+			return -1;
+		}
+		range.endoff = ADDRXLAT_ADDR_MAX;
+		map = addrxlat_map_set(NULL, 0, &range);
+		if (!map) {
+			fputs("Cannot allocate identity map\n", stderr);
+			return -1;
+		}
+		addrxlat_sys_set_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS, map);
+		addrxlat_meth_decref(range.meth);
 	}
 
 	ret = -1;
