@@ -48,6 +48,8 @@ print_xen_info(kdump_ctx_t *ctx)
 	status = kdump_get_attr(ctx, "xen.version.extra", &attr);
 	if (status == kdump_ok)
 		puts(attr.val.string);
+	else
+		putchar('\n');
 }
 
 static void
