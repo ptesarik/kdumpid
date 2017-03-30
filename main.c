@@ -26,48 +26,29 @@
 
 #include "kdumpid.h"
 
-/* Compatibility with ancient versions */
-#ifndef KDUMPFILE_VER_MAJOR
 static void
-print_xen_info(kdump_ctx *ctx)
+print_xen_info(kdump_ctx_t *ctx)
 {
-	if (kdump_is_xen(ctx)) {
-		kdump_xen_version_t ver;
-		kdump_xen_version(ctx, &ver);
-		printf("Xen: %ld.%ld%s\n",
-		       ver.major, ver.minor, ver.extra ?: "");
-	}
+	kdump_attr_t attr;
+	kdump_status status;
+
+	fputs("Xen: ", stdout);
+	status = kdump_get_attr(ctx, "xen.version.major", &attr);
+	if (status == kdump_ok)
+		printf("%ld.", attr.val.number);
+	else
+		fputs("?.", stdout);
+
+	status = kdump_get_attr(ctx, "xen.version.minor", &attr);
+	if (status == kdump_ok)
+		printf("%ld", attr.val.number);
+	else
+		fputs("?", stdout);
+
+	status = kdump_get_attr(ctx, "xen.version.extra", &attr);
+	if (status == kdump_ok)
+		puts(attr.val.string);
 }
-
-#else
-
-static void
-print_xen_info(kdump_ctx *ctx)
-{
-	if (kdump_xen_type(ctx) != kdump_xen_none) {
-		struct kdump_attr attr;
-		kdump_status status;
-
-		fputs("Xen: ", stdout);
-		status = kdump_get_attr(ctx, "xen.version.major", &attr);
-		if (status == kdump_ok)
-			printf("%ld.", attr.val.number);
-		else
-			fputs("?.", stdout);
-
-		status = kdump_get_attr(ctx, "xen.version.minor", &attr);
-		if (status == kdump_ok)
-			printf("%ld", attr.val.number);
-		else
-			fputs("?", stdout);
-
-		status = kdump_get_attr(ctx, "xen.version.extra", &attr);
-		if (status == kdump_ok)
-			puts(attr.val.string);
-	}
-}
-
-#endif
 
 static void
 version(FILE *out, const char *progname)
@@ -88,11 +69,8 @@ help(FILE *out, const char *progname)
 static void
 print_verbose(struct dump_desc *dd)
 {
-	const char *machine = kdump_machine(dd->ctx);
-	if (!machine)
-		machine = dd->machine;
-	if (*machine)
-		printf("Machine: %s\n", machine);
+	if (dd->machine[0])
+		printf("Machine: %s\n", dd->machine);
 	if (*dd->banner)
 		printf("Banner: %s\n", dd->banner);
 
@@ -122,9 +100,9 @@ main(int argc, char **argv)
 		{0, 0, 0, 0}
 	};
 	struct dump_desc dd;
+	const char *str;
 	kdump_status status;
 	int c, opt;
-	int i;
 
 	/* Initialize dd */
 	memset(&dd, 0, sizeof dd);
@@ -155,20 +133,86 @@ main(int argc, char **argv)
 		perror(dd.name);
 		return 2;
 	}
-	status = kdump_fdopen(&dd.ctx, dd.fd);
-	if (status != kdump_ok) {
-		fprintf(stderr, "Cannot initialize %s: %s\n", dd.name,
-			status == kdump_syserr
-			? strerror(errno)
-			: "libkdumpfile failure");
+
+	dd.ctx = kdump_new();
+	if (!dd.ctx) {
+		perror("Cannot allocate dump file context");
 		close(dd.fd);
 		return 2;
 	}
 
-	dd.page_size = kdump_pagesize(dd.ctx);
-	strcpy(dd.ver, kdump_release(dd.ctx) ?: "");
-	strcpy(dd.machine, kdump_machine(dd.ctx) ?: "");
-	dd.arch = kdump_arch_name(dd.ctx);
+	status = kdump_set_number_attr(dd.ctx, KDUMP_ATTR_FILE_FD, dd.fd);
+	if (status != kdump_ok) {
+		fprintf(stderr, "File initialization failed: %s\n",
+			kdump_err_str(dd.ctx));
+		close(dd.fd);
+		return 2;
+	}
+
+	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_PAGE_SIZE,
+				       &dd.page_size);
+	if (status != kdump_ok) {
+		fprintf(stderr, "Cannot get page size: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
+	status = kdump_get_string_attr(dd.ctx, "linux.uts.release", &str);
+	if (status == kdump_ok)
+		strcpy(dd.ver, str);
+	else if (status == kdump_nodata)
+		dd.ver[0] = '\0';
+	else {
+		fprintf(stderr, "Cannot get UTS release: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
+	status = kdump_get_string_attr(dd.ctx, "linux.uts.machine", &str);
+	if (status == kdump_ok)
+		strcpy(dd.machine, str);
+	else if (status == kdump_nodata)
+		dd.machine[0] = '\0';
+	else {
+		fprintf(stderr, "Cannot get UTS machine: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
+	status = kdump_get_string_attr(dd.ctx, KDUMP_ATTR_ARCH_NAME, &dd.arch);
+	if (status == kdump_nodata)
+		dd.arch = NULL;
+	else if (status != kdump_ok) {
+		fprintf(stderr, "Cannot get architecture name: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
+	status = kdump_get_string_attr(dd.ctx, KDUMP_ATTR_FILE_FORMAT,
+				       &dd.format);
+	if (status == kdump_nodata)
+		dd.format = NULL;
+	else if (status != kdump_ok) {
+		fprintf(stderr, "Cannot get architecture name: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
+	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_XEN_TYPE,
+				       &dd.xen_type);
+	if (status == kdump_nodata)
+		dd.xen_type = kdump_xen_none;
+	else if (status != kdump_ok) {
+		fprintf(stderr, "Cannot determine Xen type: %s\n",
+			kdump_err_str(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
 
 	if (need_explore(&dd))
 		explore_raw_data(&dd);
@@ -176,11 +220,12 @@ main(int argc, char **argv)
 	if (!*dd.ver)
 		get_version_from_banner(&dd);
 
-	printf("Format: %s%s\n", kdump_format(dd.ctx),
-	       kdump_is_xen(dd.ctx) ? ", Xen" : "");
+	printf("Format: %s%s\n", dd.format ?: "<unknown>",
+	       dd.xen_type != kdump_xen_none ? ", Xen" : "");
 	printf("Arch: %s\n", dd.arch);
 	printf("Version: %s\n", dd.ver);
-	print_xen_info(dd.ctx);
+	if (dd.xen_type != kdump_xen_none)
+		print_xen_info(dd.ctx);
 
 	if (dd.flags & DIF_VERBOSE)
 		print_verbose(&dd);

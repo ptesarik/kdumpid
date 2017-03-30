@@ -182,7 +182,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			if (cont)
 				continue;
 
-			if (!state.depth && kdump_is_xen(dd->ctx)
+			if (!state.depth && dd->xen_type != kdump_xen_none
 			    && state.flags & SI_STORED) {
 				if (state.flags & SP_MODIFIED &&
 				    looks_like_kvaddr(info, state.sp_value))
@@ -218,7 +218,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 				return 1;
 			if (is_reg(arg1, "si")) {
 				state.flags |= SI_STORED;
-				if (kdump_is_xen(dd->ctx) &&
+				if (dd->xen_type != kdump_xen_none &&
 				    !(state.flags & SI_MODIFIED) &&
 				    sscanf(arg2, "0x%llx", &a) == 1)
 					dd->xen_start_info = a;

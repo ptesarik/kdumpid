@@ -135,26 +135,15 @@ uts_looks_sane(struct new_utsname *uts)
 int read_page(struct dump_desc *dd, unsigned long pfn)
 {
 	size_t rd = dd->page_size;
-#ifndef KDUMPFILE_VER_MAJOR
-	return kdump_readp(dd->ctx, pfn * dd->page_size, dd->page, &rd,
-			   KDUMP_PHYSADDR);
-#else
-	return kdump_readp(dd->ctx, KDUMP_KPHYSADDR, pfn * dd->page_size,
-			   dd->page, &rd);
-#endif
+	return kdump_read(dd->ctx, KDUMP_KPHYSADDR, pfn * dd->page_size,
+			  dd->page, &rd);
 }
 
 size_t
 dump_cpin(struct dump_desc *dd, void *buf, uint64_t paddr, size_t len)
 {
-	ssize_t rd;
-#ifndef KDUMPFILE_VER_MAJOR
-	rd = kdump_read(dd->ctx, paddr, buf, len, KDUMP_PHYSADDR);
-#else
-	rd = kdump_read(dd->ctx, KDUMP_KPHYSADDR, paddr, buf, len);
-#endif
-	if (rd <= 0)
-		return len;
+	size_t rd = len;
+	kdump_read(dd->ctx, KDUMP_KPHYSADDR, paddr, buf, &rd);
 	return len - rd;
 }
 
@@ -237,7 +226,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	if (arch_in_array(dd->arch, x86_biarch)) {
 		/* Xen pv kernels are loaded low */
 		addr = 0x2000;
-		if (kdump_is_xen(dd->ctx) &&
+		if (dd->xen_type != kdump_xen_none &&
 		    looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;

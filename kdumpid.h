@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <unistd.h>
-#include <kdumpfile.h>
+#include <libkdumpfile/kdumpfile.h>
 
 #include "endian.h"
 
@@ -15,11 +15,13 @@ struct dump_desc {
 	const char *name;	/* file name */
 	long flags;		/* see DIF_XXX below */
 	int fd;			/* dump file descriptor */
-	kdump_ctx *ctx;		/* kdumpfile context */
+	kdump_ctx_t *ctx;	/* kdumpfile context */
 
 	void *page;		/* page data buffer */
-	size_t page_size;	/* target page size */
+	kdump_num_t page_size;	/* target page size */
 	unsigned long max_pfn;	/* max PFN for read_page */
+
+	const char *format;	/* format name */
 
 	const char *arch;	/* architecture (if known) */
 	int endian;		/* __LITTLE_ENDIAN or __BIG_ENDIAN */
@@ -32,6 +34,7 @@ struct dump_desc {
 	char *cfg;		/* kernel configuration */
 	size_t cfglen;
 
+	kdump_num_t xen_type;	 /* Xen dump type (or kdump_xen_none) */
 	uint64_t xen_start_info; /* address of Xen start info */
 
 	void *priv;
@@ -59,14 +62,6 @@ struct new_utsname {
 };
 
 /* utils */
-
-#ifdef KDUMPFILE_VER_MAJOR
-static inline int
-kdump_is_xen(kdump_ctx *ctx)
-{
-	return kdump_xen_type(ctx) != kdump_xen_none;
-}
-#endif
 
 int get_version_from_banner(struct dump_desc *dd);
 int need_explore(struct dump_desc *dd);
