@@ -345,9 +345,11 @@ explore_utsname(struct dump_desc *dd, uint64_t addr, uint64_t endaddr,
 
 		arch = get_machine_arch(uts.machine);
 		if (arch && arch_in_array(arch, expected_archs)) {
-			dd->arch = arch;
 			copy_uts_string(dd->machine, uts.machine);
 			copy_uts_string(dd->ver, uts.release);
+			dd->arch = (arch == uts.machine
+				    ? dd->machine
+				    : arch);
 			return 0;
 		}
 	}
