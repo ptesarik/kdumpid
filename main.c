@@ -151,6 +151,17 @@ main(int argc, char **argv)
 		return 2;
 	}
 
+	if (dd.flags & DIF_FORCE) {
+		status = kdump_get_number_attr(dd.ctx, "max_pfn",
+					       &dd.max_pfn);
+		if (status != kdump_ok) {
+			fprintf(stderr, "Cannot get max PFN: %s\n",
+				kdump_err_str(dd.ctx));
+			kdump_free(dd.ctx);
+			return 2;
+		}
+	}
+
 	kdump_set_string_attr(dd.ctx, KDUMP_ATTR_OSTYPE, "linux");
 
 	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_PAGE_SIZE,
