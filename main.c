@@ -146,7 +146,7 @@ main(int argc, char **argv)
 	status = kdump_set_number_attr(dd.ctx, KDUMP_ATTR_FILE_FD, dd.fd);
 	if (status != kdump_ok) {
 		fprintf(stderr, "File initialization failed: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		close(dd.fd);
 		return 2;
 	}
@@ -156,7 +156,7 @@ main(int argc, char **argv)
 					       &dd.max_pfn);
 		if (status != kdump_ok) {
 			fprintf(stderr, "Cannot get max PFN: %s\n",
-				kdump_err_str(dd.ctx));
+				kdump_get_err(dd.ctx));
 			kdump_free(dd.ctx);
 			return 2;
 		}
@@ -168,7 +168,7 @@ main(int argc, char **argv)
 				       &dd.page_size);
 	if (status != kdump_ok) {
 		fprintf(stderr, "Cannot get page size: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
@@ -180,7 +180,7 @@ main(int argc, char **argv)
 		dd.ver[0] = '\0';
 	else {
 		fprintf(stderr, "Cannot get UTS release: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
@@ -192,7 +192,7 @@ main(int argc, char **argv)
 		dd.machine[0] = '\0';
 	else {
 		fprintf(stderr, "Cannot get UTS machine: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
@@ -202,7 +202,7 @@ main(int argc, char **argv)
 		dd.arch = NULL;
 	else if (status != kdump_ok) {
 		fprintf(stderr, "Cannot get architecture name: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
@@ -213,7 +213,7 @@ main(int argc, char **argv)
 		dd.format = NULL;
 	else if (status != kdump_ok) {
 		fprintf(stderr, "Cannot get architecture name: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
@@ -224,7 +224,7 @@ main(int argc, char **argv)
 		dd.xen_type = kdump_xen_none;
 	else if (status != kdump_ok) {
 		fprintf(stderr, "Cannot determine Xen type: %s\n",
-			kdump_err_str(dd.ctx));
+			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
 		return 2;
 	}
