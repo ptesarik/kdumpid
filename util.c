@@ -54,7 +54,7 @@ cfg2arch(const char *cfg)
 	if (strstr(cfg, "CONFIG_X86_64=y"))
 		return "x86_64";
 	if (strstr(cfg, "CONFIG_X86_32=y"))
-		return "i386";
+		return "ia32";
 	if (strstr(cfg, "CONFIG_PPC64=y"))
 		return "ppc64";
 	if (strstr(cfg, "CONFIG_PPC32=y"))
@@ -203,11 +203,11 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 		"alpha", "arm", "ia64",
 		"ppc", "ppc64",
 		"s390", "s390x",
-		"x86", "x86_64",
+		"ia32", "x86_64",
 		NULL
 	};
 	static const char *const x86_biarch[] = {
-		"x86", "x86_64", NULL
+		"ia32", "x86_64", NULL
 	};
 	static const char *const zarch[] = {
 		"s390", "s390x", NULL
