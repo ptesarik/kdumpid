@@ -227,7 +227,7 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	if (arch_in_array(dd->arch, x86_biarch)) {
 		/* Xen pv kernels are loaded low */
 		addr = 0x2000;
-		if (dd->xen_type != kdump_xen_none &&
+		if (dd->xen_type != KDUMP_XEN_NONE &&
 		    looks_like_kcode_x86(dd, addr) > 0 &&
 		    !fn(dd, addr, addr + MAX_KERNEL_SIZE, x86_biarch)) {
 			dd->start_addr = addr;
@@ -427,30 +427,30 @@ explore_raw_data(struct dump_desc *dd)
 	map = addrxlat_sys_get_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS);
 	if (!map) {
 		addrxlat_range_t range;
-		addrxlat_def_t def;
+		addrxlat_meth_t meth;
 		addrxlat_status status;
 
-		range.meth = addrxlat_meth_new();
-		if (!range.meth) {
-			perror("Cannot allocate translation method");
-			return -1;
-		}
-		def.kind = ADDRXLAT_LINEAR;
-		def.target_as = ADDRXLAT_MACHPHYSADDR;
-		def.param.linear.off = 0;
-		status = addrxlat_meth_set_def(range.meth, &def);
-		if (status != addrxlat_ok) {
-			fputs("Cannot set up translation\n", stderr);
-			return -1;
-		}
-		range.endoff = ADDRXLAT_ADDR_MAX;
-		map = addrxlat_map_set(NULL, 0, &range);
+		meth.kind = ADDRXLAT_LINEAR;
+		meth.target_as = ADDRXLAT_MACHPHYSADDR;
+		meth.param.linear.off = 0;
+		addrxlat_sys_set_meth(sys, ADDRXLAT_SYS_METH_KPHYS_MACHPHYS,
+				      &meth);
+
+		map = addrxlat_map_new();
 		if (!map) {
-			fputs("Cannot allocate identity map\n", stderr);
+			perror("Cannot allocate identity map");
+			return -1;
+		}
+
+		range.endoff = ADDRXLAT_ADDR_MAX;
+		range.meth = ADDRXLAT_SYS_METH_KPHYS_MACHPHYS;
+		status = addrxlat_map_set(map, 0, &range);
+		if (status != ADDRXLAT_OK) {
+			fprintf(stderr, "Cannot set identity range: %s\n",
+				addrxlat_strerror(status));
 			return -1;
 		}
 		addrxlat_sys_set_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS, map);
-		addrxlat_meth_decref(range.meth);
 	}
 
 	ret = -1;

@@ -34,19 +34,19 @@ print_xen_info(kdump_ctx_t *ctx)
 
 	fputs("Xen: ", stdout);
 	status = kdump_get_attr(ctx, "xen.version.major", &attr);
-	if (status == kdump_ok)
+	if (status == KDUMP_OK)
 		printf("%ld.", attr.val.number);
 	else
 		fputs("?.", stdout);
 
 	status = kdump_get_attr(ctx, "xen.version.minor", &attr);
-	if (status == kdump_ok)
+	if (status == KDUMP_OK)
 		printf("%ld", attr.val.number);
 	else
 		fputs("?", stdout);
 
 	status = kdump_get_attr(ctx, "xen.version.extra", &attr);
-	if (status == kdump_ok)
+	if (status == KDUMP_OK)
 		puts(attr.val.string);
 	else
 		putchar('\n');
@@ -144,7 +144,7 @@ main(int argc, char **argv)
 	}
 
 	status = kdump_set_number_attr(dd.ctx, KDUMP_ATTR_FILE_FD, dd.fd);
-	if (status != kdump_ok) {
+	if (status != KDUMP_OK) {
 		fprintf(stderr, "File initialization failed: %s\n",
 			kdump_get_err(dd.ctx));
 		close(dd.fd);
@@ -154,7 +154,7 @@ main(int argc, char **argv)
 	if (dd.flags & DIF_FORCE) {
 		status = kdump_get_number_attr(dd.ctx, "max_pfn",
 					       &dd.max_pfn);
-		if (status != kdump_ok) {
+		if (status != KDUMP_OK) {
 			fprintf(stderr, "Cannot get max PFN: %s\n",
 				kdump_get_err(dd.ctx));
 			kdump_free(dd.ctx);
@@ -166,7 +166,7 @@ main(int argc, char **argv)
 
 	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_PAGE_SIZE,
 				       &dd.page_size);
-	if (status != kdump_ok) {
+	if (status != KDUMP_OK) {
 		fprintf(stderr, "Cannot get page size: %s\n",
 			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
@@ -174,9 +174,9 @@ main(int argc, char **argv)
 	}
 
 	status = kdump_get_string_attr(dd.ctx, "linux.uts.release", &str);
-	if (status == kdump_ok)
+	if (status == KDUMP_OK)
 		strcpy(dd.ver, str);
-	else if (status == kdump_nodata)
+	else if (status == KDUMP_ERR_NODATA)
 		dd.ver[0] = '\0';
 	else {
 		fprintf(stderr, "Cannot get UTS release: %s\n",
@@ -186,9 +186,9 @@ main(int argc, char **argv)
 	}
 
 	status = kdump_get_string_attr(dd.ctx, "linux.uts.machine", &str);
-	if (status == kdump_ok)
+	if (status == KDUMP_OK)
 		strcpy(dd.machine, str);
-	else if (status == kdump_nodata)
+	else if (status == KDUMP_ERR_NODATA)
 		dd.machine[0] = '\0';
 	else {
 		fprintf(stderr, "Cannot get UTS machine: %s\n",
@@ -198,9 +198,9 @@ main(int argc, char **argv)
 	}
 
 	status = kdump_get_string_attr(dd.ctx, KDUMP_ATTR_ARCH_NAME, &dd.arch);
-	if (status == kdump_nodata)
+	if (status == KDUMP_ERR_NODATA)
 		dd.arch = NULL;
-	else if (status != kdump_ok) {
+	else if (status != KDUMP_OK) {
 		fprintf(stderr, "Cannot get architecture name: %s\n",
 			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
@@ -209,9 +209,9 @@ main(int argc, char **argv)
 
 	status = kdump_get_string_attr(dd.ctx, KDUMP_ATTR_FILE_FORMAT,
 				       &dd.format);
-	if (status == kdump_nodata)
+	if (status == KDUMP_ERR_NODATA)
 		dd.format = NULL;
-	else if (status != kdump_ok) {
+	else if (status != KDUMP_OK) {
 		fprintf(stderr, "Cannot get architecture name: %s\n",
 			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
@@ -220,9 +220,9 @@ main(int argc, char **argv)
 
 	status = kdump_get_number_attr(dd.ctx, KDUMP_ATTR_XEN_TYPE,
 				       &dd.xen_type);
-	if (status == kdump_nodata)
-		dd.xen_type = kdump_xen_none;
-	else if (status != kdump_ok) {
+	if (status == KDUMP_ERR_NODATA)
+		dd.xen_type = KDUMP_XEN_NONE;
+	else if (status != KDUMP_OK) {
 		fprintf(stderr, "Cannot determine Xen type: %s\n",
 			kdump_get_err(dd.ctx));
 		kdump_free(dd.ctx);
@@ -236,10 +236,10 @@ main(int argc, char **argv)
 		get_version_from_banner(&dd);
 
 	printf("Format: %s%s\n", dd.format ?: "<unknown>",
-	       dd.xen_type != kdump_xen_none ? ", Xen" : "");
+	       dd.xen_type != KDUMP_XEN_NONE ? ", Xen" : "");
 	printf("Arch: %s\n", dd.arch);
 	printf("Version: %s\n", dd.ver);
-	if (dd.xen_type != kdump_xen_none)
+	if (dd.xen_type != KDUMP_XEN_NONE)
 		print_xen_info(dd.ctx);
 
 	if (dd.flags & DIF_VERBOSE)
