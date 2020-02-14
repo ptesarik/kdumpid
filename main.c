@@ -143,6 +143,11 @@ main(int argc, char **argv)
 		return 2;
 	}
 
+	status = kdump_set_number_attr(dd.ctx, KDUMP_ATTR_ZERO_EXCLUDED, 1);
+	if (status != KDUMP_OK)
+		fprintf(stderr, "WARNING: Excluded pages are not zeroed: %s\n",
+			kdump_get_err(dd.ctx));
+
 	status = kdump_set_number_attr(dd.ctx, KDUMP_ATTR_FILE_FD, dd.fd);
 	if (status != KDUMP_OK) {
 		fprintf(stderr, "File initialization failed: %s\n",
