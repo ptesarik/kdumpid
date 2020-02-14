@@ -35,6 +35,8 @@ static const unsigned char xen_cpuid[] =
 static const char sep[] = ", \t\r\n";
 #define wsep	(sep+1)
 
+static disassembler_ftype print_insn;
+
 static int
 disas_fn(void *data, const char *fmt, ...)
 {
@@ -154,7 +156,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 			break;
 
 		priv->iptr = priv->insn;
-		count = print_insn_i386(info->buffer_vma + pc, info);
+		count = print_insn(info->buffer_vma + pc, info);
 		set_pagemap(priv->pagemap, pc, count);
 		if (count < 0)
 			break;
@@ -258,6 +260,8 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	/* Try i386 code first */
 	info.mach          = bfd_mach_i386_i386;
 	disassemble_init_for_target(&info);
+	print_insn = disassembler(bfd_arch_i386, FALSE,
+				  bfd_mach_i386_i386, NULL);
 	if ((!dd->arch || strcmp(dd->arch, "x86_64")) &&
 	    disas_at(dd, &info, 0) > 0) {
 		free(priv);
@@ -268,6 +272,8 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	memset(priv, 0, sizeof(struct disas_priv) + dd->page_size / 8);
 	info.mach          = bfd_mach_x86_64;
 	disassemble_init_for_target(&info);
+	print_insn = disassembler(bfd_arch_i386, FALSE,
+				  bfd_mach_x86_64, NULL);
 	if ((!dd->arch || strcmp(dd->arch, "i386")) &&
 	    disas_at(dd, &info, 0) > 0) {
 		free(priv);

@@ -38,6 +38,8 @@ struct disas_priv {
 static const char sep[] = ", \t\r\n";
 #define wsep	(sep+1)
 
+static disassembler_ftype print_insn;
+
 static int
 disas_fn(void *data, const char *fmt, ...)
 {
@@ -85,7 +87,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 
 	do {
 		priv->iptr = priv->insn;
-		count = print_insn_big_powerpc(info->buffer_vma + pc, info);
+		count = print_insn(info->buffer_vma + pc, info);
 		if (count < 0)
 			break;
 		pc += count;
@@ -140,5 +142,7 @@ looks_like_kcode_ppc64(struct dump_desc *dd, uint64_t addr)
 	info.arch          = bfd_arch_powerpc;
 	info.mach          = bfd_mach_ppc64;
 	disassemble_init_for_target(&info);
+	print_insn = disassembler(bfd_arch_powerpc, TRUE,
+				  bfd_mach_ppc64, NULL);
 	return disas_at(dd, &info, 0);
 }
