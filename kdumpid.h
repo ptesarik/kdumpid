@@ -24,7 +24,7 @@ struct dump_desc {
 	const char *format;	/* format name */
 
 	const char *arch;	/* architecture (if known) */
-	int endian;		/* __LITTLE_ENDIAN or __BIG_ENDIAN */
+	kdump_num_t endian;	/* target byte order */
 	uint64_t start_addr;	/* kernel start address */
 
 	char machine[66];	/* arch name (utsname machine) */

@@ -212,6 +212,16 @@ main(int argc, char **argv)
 		return 2;
 	}
 
+	status = kdump_get_number_attr(dd.ctx, "arch.byte_order", &dd.endian);
+	if (status == KDUMP_ERR_NODATA)
+		dd.endian = (kdump_num_t)-1;
+	else if (status != KDUMP_OK) {
+		fprintf(stderr, "Cannot get architecture byte order: %s\n",
+			kdump_get_err(dd.ctx));
+		kdump_free(dd.ctx);
+		return 2;
+	}
+
 	status = kdump_get_string_attr(dd.ctx, KDUMP_ATTR_FILE_FORMAT,
 				       &dd.format);
 	if (status == KDUMP_ERR_NODATA)

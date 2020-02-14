@@ -125,7 +125,8 @@ looks_like_kcode_ppc(struct dump_desc *dd, uint64_t addr)
 	info.arch          = bfd_arch_powerpc;
 	info.mach          = bfd_mach_ppc;
 	disassemble_init_for_target(&info);
-	print_insn = disassembler(bfd_arch_powerpc, TRUE,
+	print_insn = disassembler(bfd_arch_powerpc,
+				  dd->endian != KDUMP_LITTLE_ENDIAN,
 				  bfd_mach_ppc, NULL);
 	return disas_at(dd, &info, 0);
 }
