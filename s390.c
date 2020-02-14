@@ -74,7 +74,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 {
 	struct disas_priv *priv = info->stream;
 	char *toksave;
-	char *insn, *arg1, *arg2;
+	char *insn;
 	int count;
 
 	do {
@@ -85,8 +85,6 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 		pc += count;
 
 		insn = strtok_r(priv->insn, wsep, &toksave);
-		arg1 = strtok_r(NULL, sep, &toksave);
-		arg2 = strtok_r(NULL, sep, &toksave);
 
 		/* s390 setup code always starts with a basr instruction */
 		if (pc == 0 && strcmp(insn, "basr"))

@@ -80,7 +80,7 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 {
 	struct disas_priv *priv = info->stream;
 	char *toksave;
-	char *insn, *arg1, *arg2;
+	char *insn;
 	int count;
 
 	do {
@@ -91,8 +91,6 @@ disas_at(struct dump_desc *dd, struct disassemble_info *info, unsigned pc)
 		pc += count;
 
 		insn = strtok_r(priv->insn, wsep, &toksave);
-		arg1 = strtok_r(NULL, sep, &toksave);
-		arg2 = strtok_r(NULL, sep, &toksave);
 
 		/* ppc64 starts with a jump instruction, but it
 		 * may be NOPped out at runtime */
