@@ -416,6 +416,7 @@ explore_raw_data(struct dump_desc *dd)
 {
 	addrxlat_sys_t *sys;
 	addrxlat_map_t *map;
+	kdump_status kstatus;
 	int ret;
 
 	if ( (dd->page = malloc(dd->page_size)) == NULL) {
@@ -423,7 +424,15 @@ explore_raw_data(struct dump_desc *dd)
 		return -1;
 	}
 
-	sys = kdump_get_addrxlat_sys(dd->ctx);
+	ret = -1;
+
+	kstatus = kdump_get_addrxlat(dd->ctx, NULL, &sys);
+	if (kstatus != KDUMP_OK) {
+		fprintf(stderr, "Cannot get address translation: %s\n",
+			kdump_get_err(dd->ctx));
+		goto err_free;
+	}
+
 	map = addrxlat_sys_get_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS);
 	if (!map) {
 		addrxlat_range_t range;
@@ -439,7 +448,7 @@ explore_raw_data(struct dump_desc *dd)
 		map = addrxlat_map_new();
 		if (!map) {
 			perror("Cannot allocate identity map");
-			return -1;
+			goto err_xlat;
 		}
 
 		range.endoff = ADDRXLAT_ADDR_MAX;
@@ -448,16 +457,18 @@ explore_raw_data(struct dump_desc *dd)
 		if (status != ADDRXLAT_OK) {
 			fprintf(stderr, "Cannot set identity range: %s\n",
 				addrxlat_strerror(status));
-			return -1;
+			goto err_xlat;
 		}
 		addrxlat_sys_set_map(sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS, map);
 	}
 
-	ret = -1;
 	ret &= explore_kernel(dd, explore_utsname);
 	explore_kernel(dd, explore_ikcfg);
 	ret &= explore_kernel(dd, explore_banner);
 
+ err_xlat:
+	addrxlat_sys_decref(sys);
+ err_free:
 	free(dd->page);
 
 	return ret;
