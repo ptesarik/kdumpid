@@ -3,12 +3,6 @@ To compile this package, you'll need the following:
 * [BFD](http://www.gnu.org/software/binutils/). Any version with
   disassemblers for x86, ppc and s390 will do. This usually comes with
   the distro packaged as binutils-devel or similar.
-* [zlib](http://www.zlib.net/). You can usually find it in a zlib-devel
-  package.
-* [lzo](http://www.oberhumer.com/opensource/lzo/). Often found in a
-  lzo-devel package.
-* [snappy](https://code.google.com/p/snappy/). Often found in a snappy-devel
-   package.
 * [libkdumpfile](https://github.com/ptesarik/libkdumpfile). Under heavy
   development. Unlikely to be packaged.
 * [GNU C Library](http://www.gnu.org/software/libc/libc.html). Almost
