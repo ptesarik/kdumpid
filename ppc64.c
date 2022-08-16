@@ -65,6 +65,23 @@ disas_fn(void *data, const char *fmt, ...)
 	return 0;
 }
 
+#ifdef DIS_ASM_STYLED_PRINTF
+
+static int
+disas_styled_fn(void *data, enum disassembler_style style,
+		const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	append_insn(data, fmt, va);
+	va_end(va);
+
+	return 0;
+}
+
+#endif	/* DIS_ASM_STYLED_PRINTF */
+
 static void
 print_address(bfd_vma addr, struct disassemble_info *info)
 {
@@ -138,7 +155,11 @@ looks_like_kcode_ppc64(struct dump_desc *dd, uint64_t addr)
 		return -1;
 
 	memset(&priv, 0, sizeof priv);
+#ifdef DIS_ASM_STYLED_PRINTF
+	init_disassemble_info(&info, &priv, disas_fn, disas_styled_fn);
+#else
 	init_disassemble_info(&info, &priv, disas_fn);
+#endif
 	info.print_address_func = print_address;
 	info.memory_error_func = error_func;
 	info.buffer        = dd->page;
