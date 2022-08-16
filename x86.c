@@ -37,21 +37,26 @@ static const char sep[] = ", \t\r\n";
 
 static disassembler_ftype print_insn;
 
-static int
-disas_fn(void *data, const char *fmt, ...)
+static void
+append_insn(void *data, const char *fmt, va_list va)
 {
 	struct disas_priv *priv = data;
-	va_list va;
 	size_t remain;
 	int len;
-
-	va_start(va, fmt);
 
 	remain = priv->insn + sizeof(priv->insn) - priv->iptr;
 	len = vsnprintf(priv->iptr, remain, fmt, va);
 	if (len > 0)
 		priv->iptr += len;
+}
 
+static int
+disas_fn(void *data, const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	append_insn(data, fmt, va);
 	va_end(va);
 
 	return 0;
