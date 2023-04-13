@@ -10,8 +10,8 @@ ifndef MANDIR
 MANDIR=$(PREFIX)/man
 endif
 
-CUSTOM_CFLAGS=
-LIBS += -lkdumpfile -laddrxlat -lz -lopcodes -lbfd -liberty -ldl
+CUSTOM_CFLAGS= -ggdb -Wall -I/home/petr/.local/include
+LIBS += -L/home/petr/.local/lib64 -lkdumpfile -laddrxlat -lz -lzstd -lopcodes -lbfd -lsframe -liberty -ldl
 
 LD=ld
 
