@@ -39,6 +39,7 @@ SRC=main.c util.c search.c ppc.c ppc64.c s390.c x86.c
 OBJS=$(addsuffix .o,$(basename $(SRC)))
 
 DIST_EXTRA=Makefile Makefile.lib kdumpid.1
+DIST_SCRIPTS=cdefs.sh
 DIST=$(HDRS) $(SRC) $(DIST_EXTRA)
 
 PKGDIR=kdumpid-$(VER_MAJOR).$(VER_MINOR)
@@ -60,6 +61,7 @@ dist:
 	rm -rf $(PKGDIR)
 	mkdir -p $(PKGDIR)
 	$(INSTALL) -m 0644 $(DIST) $(PKGDIR)
+	$(INSTALL) -m 0755 $(DIST_SCRIPTS) $(PKGDIR)
 
 package: dist
 	rm -f $(PKGNAME)*
