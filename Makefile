@@ -11,7 +11,7 @@ MANDIR=$(PREFIX)/man
 endif
 
 CUSTOM_CFLAGS= -ggdb -Wall -I/home/petr/.local/include
-LIBS += -L/home/petr/.local/lib64 -lkdumpfile -laddrxlat -lz -lzstd -lopcodes -lbfd -lsframe -liberty -ldl
+LIBS += -L/home/petr/.local/lib64 -lkdumpfile -laddrxlat $(shell ./libs.sh)
 
 LD=ld
 
@@ -39,7 +39,7 @@ SRC=main.c util.c search.c ppc.c ppc64.c s390.c x86.c
 OBJS=$(addsuffix .o,$(basename $(SRC)))
 
 DIST_EXTRA=Makefile Makefile.lib kdumpid.1
-DIST_SCRIPTS=cdefs.sh
+DIST_SCRIPTS=cdefs.sh libs.sh
 DIST=$(HDRS) $(SRC) $(DIST_EXTRA)
 
 PKGDIR=kdumpid-$(VER_MAJOR).$(VER_MINOR)
