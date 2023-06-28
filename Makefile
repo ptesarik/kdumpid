@@ -11,7 +11,7 @@ MANDIR=$(PREFIX)/man
 endif
 
 CUSTOM_CFLAGS= -ggdb -Wall -I/home/petr/.local/include
-LIBS += -L/home/petr/.local/lib64 -lkdumpfile -laddrxlat $(shell ./libs.sh)
+LIBS += -L/home/petr/.local/lib64 -lkdumpfile -laddrxlat -lz $(shell ./libs.sh)
 
 LD=ld
 
