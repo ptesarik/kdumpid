@@ -159,6 +159,8 @@ looks_like_kcode_s390(struct dump_desc *dd, uint64_t addr)
 	disassemble_init_for_target(&info);
 	print_insn = disassembler(bfd_arch_s390, TRUE,
 				  bfd_mach_s390_64, NULL);
+	if (!print_insn)
+		return 0;
 	ret |= disas_at(dd, &info, 0);
 
 	if (ret > 0 && priv.state.flags & SAM64_SEEN)

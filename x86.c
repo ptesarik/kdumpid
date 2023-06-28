@@ -289,6 +289,7 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	print_insn = disassembler(bfd_arch_i386, FALSE,
 				  bfd_mach_i386_i386, NULL);
 	if ((!dd->arch || strcmp(dd->arch, "x86_64")) &&
+	    print_insn &&
 	    disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
@@ -301,6 +302,7 @@ looks_like_kcode_x86(struct dump_desc *dd, uint64_t addr)
 	print_insn = disassembler(bfd_arch_i386, FALSE,
 				  bfd_mach_x86_64, NULL);
 	if ((!dd->arch || strcmp(dd->arch, "i386")) &&
+	    print_insn &&
 	    disas_at(dd, &info, 0) > 0) {
 		free(priv);
 		return 1;
