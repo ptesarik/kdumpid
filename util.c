@@ -197,6 +197,46 @@ typedef int (*explore_fn)(struct dump_desc *, uint64_t, uint64_t,
 			  const char *const *);
 
 static int
+explore_ktext(struct dump_desc *dd, explore_fn fn,
+	      const char *const *expected_archs)
+{
+	const addrxlat_range_t *range;
+	const addrxlat_meth_t *meth;
+	addrxlat_sys_t *xlatsys;
+	addrxlat_addr_t addr;
+	addrxlat_map_t *map;
+	size_t n;
+	int ret;
+
+	if (kdump_get_addrxlat(dd->ctx, NULL, &xlatsys) != KDUMP_OK)
+		return -1;
+
+	ret = -1;
+	meth = addrxlat_sys_get_meth(xlatsys, ADDRXLAT_SYS_METH_KTEXT);
+	if (meth->kind != ADDRXLAT_LINEAR)
+		goto out;
+	addr = meth->param.linear.off;
+
+	map = addrxlat_sys_get_map(xlatsys, ADDRXLAT_SYS_MAP_KV_PHYS);
+	range = addrxlat_map_ranges(map);
+	n = addrxlat_map_len(map);
+	while (n) {
+		if (range->meth == ADDRXLAT_SYS_METH_KTEXT &&
+		    !fn(dd, addr, addr + range->endoff + 1, expected_archs)) {
+			ret = 0;
+			goto out;
+		}
+		addr += range->endoff + 1;
+		++range;
+		--n;
+	}
+
+ out:
+	addrxlat_sys_decref(xlatsys);
+	return ret;
+}
+
+static int
 explore_kernel(struct dump_desc *dd, explore_fn fn)
 {
 	static const char *const all_archs[] = {
@@ -223,6 +263,9 @@ explore_kernel(struct dump_desc *dd, explore_fn fn)
 	if (dd->flags & DIF_START_FOUND)
 		return fn(dd, dd->start_addr,
 			  dd->start_addr + MAX_KERNEL_SIZE, all_archs);
+
+	if (!explore_ktext(dd, fn, all_archs))
+		return 0;
 
 	if (arch_in_array(dd->arch, x86_biarch)) {
 		/* Xen pv kernels are loaded low */
