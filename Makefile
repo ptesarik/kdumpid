@@ -20,7 +20,7 @@ COMPRESS=bzip2 -9
 ### CONFIGURATION END
 
 VER_MAJOR=1
-VER_MINOR=5
+VER_MINOR=6
 
 CDEFS:=$(shell ./cdefs.sh)
 
